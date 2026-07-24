@@ -1,17 +1,31 @@
-import { ArrowLeft, Save, Download, MousePointer2, Type } from "lucide-react";
+import { ArrowLeft, Save, Download, MousePointer2, Type, FilePlus2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEditor, type EditorTool } from "../../context/EditorContext";
 
 interface EditorTopNavProps {
   onToolSelect?: (tool: EditorTool) => void;
   onExport?: () => void;
+  onNewProject?: () => void;
+  isProjectActive?: boolean;
 }
 
 export default function EditorTopNav({
   onToolSelect,
   onExport,
+  onNewProject,
+  isProjectActive,
 }: EditorTopNavProps) {
   const { activeTool } = useEditor();
+
+  const handleNew = () => {
+    if (
+      window.confirm(
+        "Start a new project? Your current canvas will be cleared.",
+      )
+    ) {
+      onNewProject?.();
+    }
+  };
 
   return (
     <header className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md z-10">
@@ -63,6 +77,17 @@ export default function EditorTopNav({
             <Type className="w-4 h-4" />
           </button>
         </div>
+
+        {isProjectActive && (
+          <button
+            onClick={handleNew}
+            title="New Project"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:bg-white/5 rounded-md transition-all duration-200"
+          >
+            <FilePlus2 className="w-4 h-4" />
+            New
+          </button>
+        )}
 
         <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:bg-white/5 rounded-md transition-all duration-200">
           <Save className="w-4 h-4" />

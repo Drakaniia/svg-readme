@@ -11,6 +11,8 @@ interface EditorLayoutProps {
   setFrameSize: (size: FrameSize) => void;
   onToolSelect?: (tool: EditorTool) => void;
   onExport?: () => void;
+  onNewProject?: () => void;
+  isProjectActive?: boolean;
 }
 
 export default function EditorLayout({
@@ -19,10 +21,12 @@ export default function EditorLayout({
   setFrameSize,
   onToolSelect,
   onExport,
+  onNewProject,
+  isProjectActive,
 }: EditorLayoutProps) {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
-      <EditorTopNav onToolSelect={onToolSelect} onExport={onExport} />
+      <EditorTopNav onToolSelect={onToolSelect} onExport={onExport} onNewProject={onNewProject} isProjectActive={isProjectActive} />
 
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar

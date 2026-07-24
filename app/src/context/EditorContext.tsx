@@ -3,8 +3,42 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
+
+// ─── localStorage helpers ─────────────────────────────────────────────────────
+
+const LS_KEY = "svg-readme-editor";
+
+function readStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(`${LS_KEY}:${key}`);
+    if (raw === null) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+export function writeStorage<T>(key: string, value: T): void {
+  try {
+    localStorage.setItem(`${LS_KEY}:${key}`, JSON.stringify(value));
+  } catch {
+    /* quota exceeded – silently ignore */
+  }
+}
+
+export function clearEditorStorage(): void {
+  try {
+    const keys = Object.keys(localStorage).filter((k) =>
+      k.startsWith(`${LS_KEY}:`),
+    );
+    keys.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    /* ignore */
+  }
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,13 +125,21 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(
     initial?.selectedLayerIds ?? [],
   );
-  const [layers, setLayers] = useState<LayerType[]>(initial?.layers ?? []);
+  const [layers, setLayers] = useState<LayerType[]>(
+    initial?.layers ?? readStorage<LayerType[]>("layers", []),
+  );
   const [frameSize, setFrameSize] = useState(
-    initial?.frameSize ?? { width: 700, height: 350 },
+    initial?.frameSize ??
+      readStorage("frameSize", { width: 700, height: 350 }),
   );
   const [isProjectActive, setIsProjectActive] = useState(
-    initial?.isProjectActive ?? false,
+    initial?.isProjectActive ?? readStorage<boolean>("isProjectActive", false),
   );
+
+  // ── Persist to localStorage whenever these values change ──────────────────
+  useEffect(() => { writeStorage("layers", layers); }, [layers]);
+  useEffect(() => { writeStorage("frameSize", frameSize); }, [frameSize]);
+  useEffect(() => { writeStorage("isProjectActive", isProjectActive); }, [isProjectActive]);
 
   // Multi-select action: Figma Shift+click behavior
   const selectLayer = useCallback(

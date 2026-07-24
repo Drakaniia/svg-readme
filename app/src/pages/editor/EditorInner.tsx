@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import EditorLayout from "../../layouts/EditorLayout";
-import { useEditor } from "../../context/EditorContext";
+import { useEditor, clearEditorStorage } from "../../context/EditorContext";
 import type { EditorTool, LayerType } from "../../context/EditorContext";
 import Canvas from "../../components/editor-canvas/Canvas";
 import type { TextElementProperties, ShapeElementProperties, ElementProperties, ShapeKind } from "../../components/editor-canvas/ElementsRenderer";
@@ -11,6 +11,9 @@ import {
   copySvgText,
   copyMarkdown,
 } from "../../lib/export";
+
+// ── localStorage key for element properties ─────────────────────────────────
+const EP_STORAGE_KEY = "svg-readme-editor:elementProperties";
 
 // ── Types for clipboard and undo history ───────────────────────────────────
 
@@ -63,7 +66,21 @@ export function EditorInner() {
   // Track element properties (position, styling for each layer — text or shape)
   const [elementProperties, setElementProperties] = useState<
     Record<string, ElementProperties>
-  >({});
+  >(() => {
+    try {
+      const raw = localStorage.getItem(EP_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, ElementProperties>) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Persist elementProperties to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(EP_STORAGE_KEY, JSON.stringify(elementProperties));
+    } catch { /* ignore */ }
+  }, [elementProperties]);
 
   // Text editing state
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -77,6 +94,18 @@ export function EditorInner() {
     past: [],
     future: [],
   });
+
+  // ── New Project — reset all state and clear localStorage ─────────────────
+  const handleNewProject = useCallback(() => {
+    clearEditorStorage();
+    localStorage.removeItem(EP_STORAGE_KEY);
+    setLayers([]);
+    setElementProperties({});
+    setSelectedLayerId(null);
+    setSelectedLayerIds([]);
+    setIsProjectActive(false);
+    setHistory({ past: [], future: [] });
+  }, [setLayers, setSelectedLayerId, setSelectedLayerIds, setIsProjectActive]);
 
   // Ref to track if we're editing text for keyboard shortcut guard
   const isEditingRef = useRef(false);
@@ -630,6 +659,7 @@ export function EditorInner() {
         setFrameSize={setFrameSize}
         onToolSelect={handleToolChange}
         onExport={handleExport}
+        onNewProject={handleNewProject}
       >
         <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
           <div className="bg-zinc-900 border border-white/10 p-8 w-full max-w-md rounded-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col gap-6 z-30">
@@ -742,6 +772,8 @@ export function EditorInner() {
       setFrameSize={setFrameSize}
       onToolSelect={handleToolChange}
       onExport={handleExport}
+      onNewProject={handleNewProject}
+      isProjectActive={isProjectActive}
     >
       {/* Canvas Area wrapper for zoom/pan context */}
       <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
