@@ -29,6 +29,8 @@ export interface ShapeElementProperties {
   stroke: string;
   strokeWidth: number;
   opacity: number;
+  /** Rotation in degrees around the shape's own center (0–360). */
+  rotation?: number;
 }
 
 /** Union of all element property types */
@@ -202,13 +204,19 @@ function ShapeElement({
   isSelected: boolean;
   isRubberBandHighlighted?: boolean;
 }) {
-  const { kind, x, y, width, height, fill, stroke, strokeWidth, opacity } =
+  const { kind, x, y, width, height, fill, stroke, strokeWidth, opacity, rotation } =
     properties;
   const showHighlight = isSelected || isRubberBandHighlighted;
 
   const selectionStroke = isRubberBandHighlighted && !isSelected ? "#60a5fa" : "#3b82f6";
   const selectionDash = isRubberBandHighlighted && !isSelected ? "3 2" : undefined;
   const selectionFill = isRubberBandHighlighted && !isSelected ? "rgba(59,130,246,0.08)" : "none";
+
+  // Center of the bounding box — used as the rotation origin
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const rotateTransform =
+    rotation ? `rotate(${rotation}, ${cx}, ${cy})` : undefined;
 
   // Render the actual shape
   let shapeEl: React.ReactNode;
@@ -306,7 +314,11 @@ function ShapeElement({
   }
 
   return (
-    <g className="canvas-element" data-layer-type="shape">
+    <g
+      className="canvas-element"
+      data-layer-type="shape"
+      transform={rotateTransform}
+    >
       {shapeEl}
       {hitEl}
       {showHighlight && (

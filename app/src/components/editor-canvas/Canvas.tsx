@@ -14,6 +14,7 @@ import {
   type RubberBandState,
   type CanvasProps,
   type ResizeState,
+  type RotateState,
 } from "./types";
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -40,6 +41,8 @@ export default function Canvas({
   onCommitText,
   onResizeStart,
   onResizeElement,
+  onRotateStart,
+  onRotateElement,
   children,
 }: CanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -56,6 +59,7 @@ export default function Canvas({
     string[]
   >([]);
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
+  const [rotateState, setRotateState] = useState<RotateState | null>(null);
 
   const selectedId =
     selectedLayerIds && selectedLayerIds.length > 0
@@ -69,6 +73,7 @@ export default function Canvas({
     if (SHAPE_TOOLS.has(activeTool)) return "crosshair";
     if (dragState) return "grabbing";
     if (resizeState) return getHandleCursor(resizeState.handle);
+    if (rotateState) return "grabbing";
     return "default";
   };
 
@@ -168,6 +173,34 @@ export default function Canvas({
       onResizeStart,
       getSVGCoords,
     ],
+  );
+
+  // ── Handle rotate handle mousedown ─────────────────────────────────────────
+  const handleRotateMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isEditingText) {
+        onCommitText?.();
+      }
+
+      if (selectedId && selectedProps && selectedProps.type === "shape") {
+        onRotateStart?.();
+        const coords = getSVGCoords(e);
+        const centerX = selectedProps.x + selectedProps.width / 2;
+        const centerY = selectedProps.y + selectedProps.height / 2;
+        const dx = coords.x - centerX;
+        const dy = coords.y - centerY;
+        const startAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        setRotateState({
+          elementId: selectedId,
+          centerX,
+          centerY,
+          startAngle,
+          initialRotation: selectedProps.rotation ?? 0,
+        });
+      }
+    },
+    [selectedId, selectedProps, isEditingText, onCommitText, getSVGCoords, onRotateStart],
   );
 
   // ── Element mouse down (for move tool selection/drag) ──────────────────────
@@ -303,7 +336,16 @@ export default function Canvas({
   // ── Mouse move handler ─────────────────────────────────────────────────────
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      if (resizeState) {
+      if (rotateState) {
+        const coords = getSVGCoords(e);
+        const dx = coords.x - rotateState.centerX;
+        const dy = coords.y - rotateState.centerY;
+        const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const angleDelta = currentAngle - rotateState.startAngle;
+        let newRotation = (rotateState.initialRotation + angleDelta) % 360;
+        if (newRotation < 0) newRotation += 360;
+        onRotateElement?.(rotateState.elementId, newRotation);
+      } else if (resizeState) {
         const coords = getSVGCoords(e);
         const dx = coords.x - resizeState.startX;
         const dy = coords.y - resizeState.startY;
@@ -403,6 +445,7 @@ export default function Canvas({
       }
     },
     [
+      rotateState,
       resizeState,
       dragState,
       rubberBandState,
@@ -411,13 +454,16 @@ export default function Canvas({
       getSVGCoords,
       onMoveElement,
       onResizeElement,
+      onRotateElement,
       computeRubberBandElements,
     ],
   );
 
   // ── Mouse up handler ───────────────────────────────────────────────────────
   const handleMouseUp = useCallback(() => {
-    if (resizeState) {
+    if (rotateState) {
+      setRotateState(null);
+    } else if (resizeState) {
       setResizeState(null);
     } else if (dragState) {
       setDragState(null);
@@ -485,6 +531,7 @@ export default function Canvas({
       setShapeDragState(null);
     }
   }, [
+    rotateState,
     resizeState,
     dragState,
     rubberBandState,
@@ -615,6 +662,11 @@ export default function Canvas({
     );
   };
 
+  const rotateTransform =
+    showResizeOverlay && selectedProps && selectedProps.type === "shape" && selectedProps.rotation
+      ? `rotate(${selectedProps.rotation}, ${selectedProps.x + selectedProps.width / 2}, ${selectedProps.y + selectedProps.height / 2})`
+      : undefined;
+
   return (
     <div className="relative">
       <svg
@@ -650,7 +702,7 @@ export default function Canvas({
 
         {/* Resize Handles Overlay */}
         {showResizeOverlay && (
-          <g className="resize-overlay">
+          <g className="resize-overlay" transform={rotateTransform}>
             {/* Bounding box outline */}
             <rect
               x={selectedProps.x}
@@ -661,6 +713,35 @@ export default function Canvas({
               stroke="#3b82f6"
               strokeWidth={1}
               className="pointer-events-none"
+            />
+            {/* Rotate handle connector line */}
+            <line
+              x1={selectedProps.x + selectedProps.width / 2}
+              y1={selectedProps.y}
+              x2={selectedProps.x + selectedProps.width / 2}
+              y2={selectedProps.y - 24}
+              stroke="#3b82f6"
+              strokeWidth={1}
+              className="pointer-events-none"
+            />
+            {/* Rotate handle visual circle */}
+            <circle
+              cx={selectedProps.x + selectedProps.width / 2}
+              cy={selectedProps.y - 24}
+              r={4}
+              fill="white"
+              stroke="#3b82f6"
+              strokeWidth={1.5}
+              className="pointer-events-none"
+            />
+            {/* Rotate handle invisible hit area */}
+            <circle
+              cx={selectedProps.x + selectedProps.width / 2}
+              cy={selectedProps.y - 24}
+              r={10}
+              fill="transparent"
+              style={{ cursor: rotateState ? "grabbing" : "grab" }}
+              onMouseDown={handleRotateMouseDown}
             />
             {/* 8 Handles */}
             {renderHandle(selectedProps.x, selectedProps.y, "tl")}

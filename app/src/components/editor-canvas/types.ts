@@ -99,6 +99,18 @@ export interface ResizeState {
   initialHeight: number;
 }
 
+/** State for rotating an element by dragging the rotate handle */
+export interface RotateState {
+  elementId: string;
+  /** Center of the shape's bounding box in SVG coordinates */
+  centerX: number;
+  centerY: number;
+  /** Angle (degrees) from center to mousedown point */
+  startAngle: number;
+  /** Shape's rotation before the drag started */
+  initialRotation: number;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 /** Props for the Canvas component */
@@ -149,6 +161,10 @@ export interface CanvasProps {
     width: number,
     height: number,
   ) => void;
+  /** Called when an element begins rotating */
+  onRotateStart?: () => void;
+  /** Called when a shape is rotated via the rotate handle */
+  onRotateElement?: (id: string, rotation: number) => void;
   /** Called when editing state changes */
   onEditingChange: (editing: boolean) => void;
   /** Called when user wants to edit existing text */

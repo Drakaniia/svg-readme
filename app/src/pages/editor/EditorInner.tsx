@@ -23,7 +23,7 @@ interface ClipboardState {
 }
 
 interface HistoryAction {
-  type: "CREATE" | "DELETE" | "MOVE" | "UPDATE" | "PASTE";
+  type: "CREATE" | "DELETE" | "MOVE" | "UPDATE" | "PASTE" | "RESIZE" | "ROTATE";
   layers: LayerType[];
   elementProperties: Record<string, ElementProperties>;
   selectedLayerIds: string[];
@@ -556,6 +556,29 @@ export function EditorInner() {
     saveToHistory("RESIZE");
   }, [saveToHistory]);
 
+  // ── Rotate element ────────────────────────────────────────────────────────
+  const handleRotateElement = useCallback(
+    (id: string, rotation: number) => {
+      setElementProperties((prev) => {
+        const props = prev[id];
+        if (!props) return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...props,
+            rotation,
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  // ── Rotate start (saves state to history) ──────────────────────────────────
+  const handleRotateStart = useCallback(() => {
+    saveToHistory("ROTATE");
+  }, [saveToHistory]);
+
   // ── Tool change handler (commits text if editing, then switches) ──────────
   const handleToolChange = useCallback(
     (tool: EditorTool) => {
@@ -796,6 +819,8 @@ export function EditorInner() {
             onMoveElement={handleMoveElement}
             onResizeStart={handleResizeStart}
             onResizeElement={handleResizeElement}
+            onRotateStart={handleRotateStart}
+            onRotateElement={handleRotateElement}
             onEditingChange={setIsEditingText}
             onEditText={handleEditText}
             editingContent={editingContent}

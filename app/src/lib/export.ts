@@ -53,34 +53,36 @@ function hexagonPath(x: number, y: number, w: number, h: number): string {
 }
 
 function renderShapeToSvgString(props: ShapeElementProperties): string {
-  const { kind, x, y, width, height, fill, stroke, strokeWidth, opacity } =
+  const { kind, x, y, width, height, fill, stroke, strokeWidth, opacity, rotation } =
     props;
   const strokeAttr = stroke ? ` stroke="${stroke}" stroke-width="${strokeWidth}"` : "";
   const opacityAttr = opacity !== 1 ? ` opacity="${opacity}"` : "";
 
+  let el = "";
   if (kind === "rect") {
-    return `    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}"${strokeAttr}${opacityAttr} rx="4"/>`;
-  }
-  if (kind === "circle") {
+    el = `<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${fill}"${strokeAttr}${opacityAttr} rx="4"/>`;
+  } else if (kind === "circle") {
     const rx = width / 2;
     const ry = height / 2;
-    return `    <ellipse cx="${x + rx}" cy="${y + ry}" rx="${rx}" ry="${ry}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
-  }
-  if (kind === "triangle") {
-    return `    <path d="${trianglePath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
-  }
-  if (kind === "star") {
-    return `    <path d="${starPath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
-  }
-  if (kind === "hexagon") {
-    return `    <path d="${hexagonPath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
-  }
-  if (kind === "line") {
+    el = `<ellipse cx="${x + rx}" cy="${y + ry}" rx="${rx}" ry="${ry}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
+  } else if (kind === "triangle") {
+    el = `<path d="${trianglePath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
+  } else if (kind === "star") {
+    el = `<path d="${starPath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
+  } else if (kind === "hexagon") {
+    el = `<path d="${hexagonPath(x, y, width, height)}" fill="${fill}"${strokeAttr}${opacityAttr}/>`;
+  } else if (kind === "line") {
     const midY = y + height / 2;
     const lineStroke = stroke || fill;
-    return `    <line x1="${x}" y1="${midY}" x2="${x + width}" y2="${midY}" stroke="${lineStroke}" stroke-width="${Math.max(strokeWidth, 2)}"${opacityAttr}/>`;
+    el = `<line x1="${x}" y1="${midY}" x2="${x + width}" y2="${midY}" stroke="${lineStroke}" stroke-width="${Math.max(strokeWidth, 2)}"${opacityAttr}/>`;
   }
-  return "";
+
+  if (el && rotation) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    return `    <g transform="rotate(${rotation}, ${cx}, ${cy})">\n      ${el}\n    </g>`;
+  }
+  return el ? `    ${el}` : "";
 }
 
 // ─── Build SVG string ────────────────────────────────────────────────────────
