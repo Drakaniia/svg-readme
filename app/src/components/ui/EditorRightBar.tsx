@@ -3,7 +3,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   Move,
   Eye,
   Download,
@@ -11,21 +10,34 @@ import {
   Code,
   Image,
   Check,
+  ImagePlus,
 } from "lucide-react";
+import type { ElementProperties } from "../editor-canvas/ElementsRenderer";
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 
 interface EditorRightBarProps {
   onExport?: () => void;
+  selectedLayerIds?: string[];
+  elementProperties?: Record<string, ElementProperties>;
+  onUpdateProperties?: (
+    id: string,
+    updates: Partial<ElementProperties>,
+  ) => void;
 }
 
-export default function EditorRightBar({ onExport }: EditorRightBarProps) {
+export default function EditorRightBar({
+  onExport,
+  selectedLayerIds,
+  elementProperties,
+  onUpdateProperties,
+}: EditorRightBarProps) {
   const [activeTab, setActiveTab] = useState<"design" | "animate" | "export">(
     "design",
   );
   const [copiedType, setCopiedType] = useState<"svg" | "markdown" | null>(null);
 
   const handleCopySvg = async () => {
-    // We need to get the SVG string - we'll copy from the export function
-    // For now, dispatch a custom event that Editor.tsx listens to
     window.dispatchEvent(new CustomEvent("copy-svg-code"));
     setCopiedType("svg");
     setTimeout(() => setCopiedType(null), 2000);
@@ -36,6 +48,14 @@ export default function EditorRightBar({ onExport }: EditorRightBarProps) {
     setCopiedType("markdown");
     setTimeout(() => setCopiedType(null), 2000);
   };
+
+  // Determine selected element
+  const selectedId =
+    selectedLayerIds && selectedLayerIds.length === 1
+      ? selectedLayerIds[0]
+      : null;
+  const selectedProps =
+    selectedId && elementProperties ? elementProperties[selectedId] : null;
 
   return (
     <aside className="w-80 shrink-0 border-l border-white/5 bg-[#09090b]/95 backdrop-blur-xl flex flex-col z-10 shadow-[-4px_0_24px_rgba(0,0,0,0.2)]">
@@ -74,7 +94,14 @@ export default function EditorRightBar({ onExport }: EditorRightBarProps) {
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-y-scroll scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent">
-        {activeTab === "design" && <DesignTab />}
+        {activeTab === "design" && (
+          <DesignTab
+            selectedId={selectedId}
+            selectedProps={selectedProps}
+            onUpdateProperties={onUpdateProperties}
+            multiSelectCount={selectedLayerIds?.length ?? 0}
+          />
+        )}
         {activeTab === "animate" && <AnimateTab />}
         {activeTab === "export" && (
           <ExportTab
@@ -89,89 +116,190 @@ export default function EditorRightBar({ onExport }: EditorRightBarProps) {
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Shared input field component for the right sidebar */
+function PropInput({
+  label,
+  value,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  type?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
+      <span className="text-zinc-500 text-xs font-mono">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-transparent text-sm w-full outline-none text-zinc-300 focus:text-white"
+      />
+    </div>
+  );
+}
+
 // ─── Design Tab ───────────────────────────────────────────────────────────────
 
-function DesignTab() {
-  return (
-    <>
-      {/* Layout Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Layout
+interface DesignTabProps {
+  selectedId: string | null;
+  selectedProps: ElementProperties | null;
+  onUpdateProperties?: (
+    id: string,
+    updates: Partial<ElementProperties>,
+  ) => void;
+  multiSelectCount: number;
+}
+
+function DesignTab({
+  selectedId,
+  selectedProps,
+  onUpdateProperties,
+  multiSelectCount,
+}: DesignTabProps) {
+  if (multiSelectCount > 1) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center text-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
+          <Move className="w-4 h-4 text-zinc-400" />
         </div>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">X</span>
-            <input
-              type="text"
-              defaultValue="120"
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">Y</span>
-            <input
-              type="text"
-              defaultValue="45"
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">W</span>
-            <input
-              type="text"
-              defaultValue="auto"
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">H</span>
-            <input
-              type="text"
-              defaultValue="auto"
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
+        <div>
+          <h3 className="text-sm font-medium text-zinc-300 mb-1">
+            Multiple Selection
+          </h3>
+          <p className="text-xs text-zinc-500">
+            {multiSelectCount} layers selected. Select a single layer to edit
+            its properties.
+          </p>
         </div>
       </div>
+    );
+  }
 
-      {/* Typography Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Typography
+  if (!selectedId || !selectedProps) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center text-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
+          <Eye className="w-4 h-4 text-zinc-400" />
         </div>
+        <div>
+          <h3 className="text-sm font-medium text-zinc-300 mb-1">
+            No Selection
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Select a layer on the canvas to edit its properties.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-        <div className="relative mb-4">
-          <select className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer">
-            <option>Inter</option>
-            <option selected>Poppins</option>
-            <option>JetBrains Mono</option>
-          </select>
-          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+  const update = (updates: Partial<ElementProperties>) =>
+    onUpdateProperties?.(selectedId, updates);
+
+  // ── Common Layout Section (all types have x, y, width, height) ────────
+  const layoutSection = (
+    <div className="p-5 border-b border-white/5">
+      <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+        Layout
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <PropInput
+          label="X"
+          value={String(Math.round(selectedProps.x))}
+          type="number"
+          onChange={(v) => update({ x: Number(v) || 0 })}
+        />
+        <PropInput
+          label="Y"
+          value={String(Math.round(selectedProps.y))}
+          type="number"
+          onChange={(v) => update({ y: Number(v) || 0 })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropInput
+          label="W"
+          value={String(
+            typeof selectedProps.width === "number"
+              ? Math.round(selectedProps.width)
+              : selectedProps.width,
+          )}
+          type={typeof selectedProps.width === "number" ? "number" : "text"}
+          onChange={(v) => {
+            const parsed = Number(v);
+            if (!isNaN(parsed) && parsed > 0)
+              update({ width: parsed } as Partial<ElementProperties>);
+          }}
+        />
+        <PropInput
+          label="H"
+          value={String(Math.round(selectedProps.height))}
+          type="number"
+          onChange={(v) => {
+            const parsed = Number(v);
+            if (!isNaN(parsed) && parsed > 0) update({ height: parsed });
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  // ── Rotation / Opacity Section (shapes & images) ──────────────────────
+  const transformSection =
+    selectedProps.type === "shape" || selectedProps.type === "image" ? (
+      <div className="p-5 border-b border-white/5">
+        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+          Transform
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <PropInput
+            label="R°"
+            value={String(Math.round(selectedProps.rotation ?? 0))}
+            type="number"
+            onChange={(v) => update({ rotation: Number(v) || 0 })}
+          />
+          <PropInput
+            label="Op"
+            value={String(selectedProps.opacity)}
+            type="number"
+            onChange={(v) => {
+              const parsed = Number(v);
+              if (!isNaN(parsed))
+                update({ opacity: Math.max(0, Math.min(1, parsed)) });
+            }}
+          />
+        </div>
+      </div>
+    ) : null;
+
+  // ── Type-specific sections ────────────────────────────────────────────
+  if (selectedProps.type === "text") {
+    return (
+      <>
+        {layoutSection}
+
+        {/* Typography */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Typography
           </div>
-        </div>
 
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1">
-            <select className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer">
-              <option>Regular</option>
-              <option>Medium</option>
-              <option>SemiBold</option>
-              <option selected>Bold</option>
+          <div className="relative mb-3">
+            <select
+              value={selectedProps.fontFamily}
+              onChange={(e) => update({ fontFamily: e.target.value })}
+              className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+            >
+              <option value="Inter">Inter</option>
+              <option value="Poppins">Poppins</option>
+              <option value="JetBrains Mono">JetBrains Mono</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Outfit">Outfit</option>
             </select>
             <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
               <svg
@@ -188,83 +316,181 @@ function DesignTab() {
               </svg>
             </div>
           </div>
-          <div className="w-20 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 flex items-center focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
+
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <select
+                value={String(selectedProps.fontWeight)}
+                onChange={(e) =>
+                  update({ fontWeight: Number(e.target.value) })
+                }
+                className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+              >
+                <option value="400">Regular</option>
+                <option value="500">Medium</option>
+                <option value="600">SemiBold</option>
+                <option value="700">Bold</option>
+              </select>
+              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </div>
+            </div>
+            <PropInput
+              label="Sz"
+              value={String(selectedProps.fontSize)}
+              type="number"
+              onChange={(v) => {
+                const parsed = Number(v);
+                if (!isNaN(parsed) && parsed > 0)
+                  update({ fontSize: parsed });
+              }}
+            />
+          </div>
+
+          {/* Text Alignment */}
+          <div className="flex items-center gap-1.5 bg-zinc-900/50 p-1.5 rounded-md border border-white/5">
+            {(["left", "center", "right"] as const).map((align) => (
+              <button
+                key={align}
+                onClick={() => update({ textAlign: align })}
+                className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                  selectedProps.textAlign === align
+                    ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {align === "left" && <AlignLeft className="w-4 h-4" />}
+                {align === "center" && <AlignCenter className="w-4 h-4" />}
+                {align === "right" && <AlignRight className="w-4 h-4" />}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fill (text color) */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Color
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={selectedProps.color}
+              onChange={(e) => update({ color: e.target.value })}
+              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+            />
             <input
               type="text"
-              defaultValue="48"
-              className="bg-transparent text-sm w-full outline-none text-zinc-300 text-center"
+              value={selectedProps.color}
+              onChange={(e) => update({ color: e.target.value })}
+              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
+            />
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (selectedProps.type === "shape") {
+    return (
+      <>
+        {layoutSection}
+        {transformSection}
+
+        {/* Fill */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Fill
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={selectedProps.fill}
+              onChange={(e) => update({ fill: e.target.value })}
+              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+            />
+            <input
+              type="text"
+              value={selectedProps.fill}
+              onChange={(e) => update({ fill: e.target.value })}
+              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
             />
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-zinc-900/50 p-1.5 rounded-md border border-white/5">
-          <button className="flex-1 p-2 rounded bg-zinc-800 text-zinc-100 shadow-sm flex items-center justify-center">
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button className="flex-1 p-2 rounded text-zinc-400 hover:text-zinc-200 flex items-center justify-center transition-colors">
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button className="flex-1 p-2 rounded text-zinc-400 hover:text-zinc-200 flex items-center justify-center transition-colors">
-            <AlignRight className="w-4 h-4" />
-          </button>
-          <button className="flex-1 p-2 rounded text-zinc-400 hover:text-zinc-200 flex items-center justify-center transition-colors">
-            <AlignJustify className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* Fill Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Fill
-        </div>
-        <div className="flex items-center gap-4 bg-zinc-900 border border-white/5 rounded-md p-3 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all cursor-pointer hover:border-white/10">
-          <div
-            className="w-6 h-6 rounded border border-white/10"
-            style={{ background: "linear-gradient(135deg, #3b82f6, #8b5cf6)" }}
-          />
-          <div className="flex-1 flex flex-col">
-            <span className="text-sm text-zinc-300">Gradient</span>
-            <span className="text-[10px] text-zinc-500 uppercase font-mono">
-              Linear
-            </span>
+        {/* Stroke */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Stroke
           </div>
-          <span className="text-xs text-zinc-500 font-mono">100%</span>
+          <div className="flex items-center gap-3 mb-2">
+            <input
+              type="color"
+              value={selectedProps.stroke || "#ffffff"}
+              onChange={(e) => update({ stroke: e.target.value })}
+              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+            />
+            <input
+              type="text"
+              value={selectedProps.stroke}
+              onChange={(e) => update({ stroke: e.target.value })}
+              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
+            />
+          </div>
+          <PropInput
+            label="Wt"
+            value={String(selectedProps.strokeWidth)}
+            type="number"
+            onChange={(v) => {
+              const parsed = Number(v);
+              if (!isNaN(parsed) && parsed >= 0)
+                update({ strokeWidth: parsed });
+            }}
+          />
         </div>
-      </div>
+      </>
+    );
+  }
 
-      {/* Effects Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold flex justify-between items-center">
-          Effects
-          <button className="text-zinc-400 hover:text-white transition-colors">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M5 12h14" />
-              <path d="M12 5v14" />
-            </svg>
-          </button>
+  if (selectedProps.type === "image") {
+    return (
+      <>
+        {layoutSection}
+        {transformSection}
+
+        {/* Image Info */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Image
+          </div>
+          {/* Thumbnail preview */}
+          <div className="relative w-full aspect-video bg-zinc-900 border border-white/5 rounded-lg overflow-hidden mb-3">
+            <img
+              src={selectedProps.url}
+              alt="Selected"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <p className="text-[10px] text-zinc-600 leading-relaxed">
+            Image is embedded as a base64 data URL in the exported SVG.
+          </p>
         </div>
-        <div className="flex items-center justify-between text-sm text-zinc-300 py-2 group cursor-pointer hover:bg-white/5 rounded px-3 -mx-3 transition-colors">
-          <span className="flex items-center gap-3">
-            <Eye className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
-            Drop Shadow
-          </span>
-          <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <Move className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  }
+
+  return null;
 }
 
 // ─── Animate Tab ──────────────────────────────────────────────────────────────

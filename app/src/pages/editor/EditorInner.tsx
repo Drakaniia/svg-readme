@@ -3,7 +3,7 @@ import EditorLayout from "../../layouts/EditorLayout";
 import { useEditor, clearEditorStorage } from "../../context/EditorContext";
 import type { EditorTool, LayerType } from "../../context/EditorContext";
 import Canvas from "../../components/editor-canvas/Canvas";
-import type { TextElementProperties, ShapeElementProperties, ElementProperties, ShapeKind } from "../../components/editor-canvas/ElementsRenderer";
+import type { TextElementProperties, ShapeElementProperties, ImageElementProperties, ElementProperties, ShapeKind } from "../../components/editor-canvas/ElementsRenderer";
 import { createLayer } from "../../lib/api";
 import {
   buildSvgString,
@@ -107,11 +107,13 @@ export function EditorInner() {
     setHistory({ past: [], future: [] });
   }, [setLayers, setSelectedLayerId, setSelectedLayerIds, setIsProjectActive]);
 
-  // Ref to track if we're editing text for keyboard shortcut guard
   const isEditingRef = useRef(false);
   useEffect(() => {
     isEditingRef.current = isEditingText;
   }, [isEditingText]);
+
+  // Hidden file input for image uploads
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Ref for export data to avoid re-registering event listeners on every render
   const exportDataRef = useRef({ frameSize, elementProperties, layers });
@@ -585,9 +587,101 @@ export function EditorInner() {
       if (isEditingText) {
         handleCommitText();
       }
+      if (tool === "image") {
+        // Trigger the hidden file input instead of switching tool
+        imageInputRef.current?.click();
+        return;
+      }
       setActiveTool(tool);
     },
     [isEditingText, handleCommitText, setActiveTool],
+  );
+
+  // ── Image file selected from the file picker ──────────────────────────────
+  const handleImageFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+
+        // Read the natural dimensions so we can fit the image on canvas
+        const img = new window.Image();
+        img.onload = () => {
+          const maxW = frameSize.width * 0.6;
+          const maxH = frameSize.height * 0.6;
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+
+          // Scale down while preserving aspect ratio
+          if (w > maxW || h > maxH) {
+            const ratio = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+
+          // Center on canvas
+          const x = Math.round((frameSize.width - w) / 2);
+          const y = Math.round((frameSize.height - h) / 2);
+
+          const tempId = `image-${Date.now()}`;
+          const newLayer: LayerType = {
+            id: tempId,
+            name: file.name.replace(/\.[^.]+$/, "") || "Image",
+            type: "image",
+            locked: false,
+            visible: true,
+            active: true,
+          };
+
+          const newProps: ImageElementProperties = {
+            type: "image",
+            x,
+            y,
+            width: w,
+            height: h,
+            url: dataUrl,
+            opacity: 1,
+          };
+
+          saveToHistory("CREATE");
+          selectLayer(tempId, false);
+          setLayers((prev) =>
+            prev.map((l) => ({ ...l, active: false })).concat(newLayer),
+          );
+          setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
+          setActiveTool("move");
+
+          // Persist to backend (fire-and-forget)
+          createLayer(TEMP_PROJECT_ID, { name: newLayer.name }).catch(
+            console.error,
+          );
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+
+      // Reset the input so the same file can be selected again
+      e.target.value = "";
+    },
+    [frameSize, saveToHistory, selectLayer, setLayers, setActiveTool],
+  );
+
+  // ── Update properties for the selected element ────────────────────────────
+  const handleUpdateProperties = useCallback(
+    (id: string, updates: Partial<ElementProperties>) => {
+      setElementProperties((prev) => {
+        const existing = prev[id];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [id]: { ...existing, ...updates } as ElementProperties,
+        };
+      });
+    },
+    [],
   );
 
   // ── Select layer (Figma: single-click selects the layer) ────────────────
@@ -797,6 +891,9 @@ export function EditorInner() {
       onExport={handleExport}
       onNewProject={handleNewProject}
       isProjectActive={isProjectActive}
+      selectedLayerIds={selectedLayerIds}
+      elementProperties={elementProperties}
+      onUpdateProperties={handleUpdateProperties}
     >
       {/* Canvas Area wrapper for zoom/pan context */}
       <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
@@ -866,6 +963,15 @@ export function EditorInner() {
           </button>
         </div>
       </div>
+
+      {/* Hidden file input for image uploads */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleImageFileChange}
+      />
     </EditorLayout>
   );
 }

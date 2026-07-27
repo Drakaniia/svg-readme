@@ -4,6 +4,7 @@ import EditorSidebar from "../components/ui/EditorSidebar";
 import EditorRightBar from "../components/ui/EditorRightBar";
 import type { EditorTool } from "../context/EditorContext";
 import { type FrameSize } from "../components/editor-sidebar/FramePanel";
+import type { ElementProperties } from "../components/editor-canvas/ElementsRenderer";
 
 interface EditorLayoutProps {
   children: ReactNode;
@@ -13,6 +14,9 @@ interface EditorLayoutProps {
   onExport?: () => void;
   onNewProject?: () => void;
   isProjectActive?: boolean;
+  selectedLayerIds?: string[];
+  elementProperties?: Record<string, ElementProperties>;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
 }
 
 export default function EditorLayout({
@@ -23,6 +27,9 @@ export default function EditorLayout({
   onExport,
   onNewProject,
   isProjectActive,
+  selectedLayerIds,
+  elementProperties,
+  onUpdateProperties,
 }: EditorLayoutProps) {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
@@ -48,7 +55,12 @@ export default function EditorLayout({
           {children}
         </main>
 
-        <EditorRightBar onExport={onExport} />
+        <EditorRightBar
+          onExport={onExport}
+          selectedLayerIds={selectedLayerIds}
+          elementProperties={elementProperties}
+          onUpdateProperties={onUpdateProperties}
+        />
       </div>
     </div>
   );

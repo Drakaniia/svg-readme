@@ -1,4 +1,4 @@
-import type { ElementProperties, ShapeElementProperties } from "../components/editor-canvas/ElementsRenderer";
+import type { ElementProperties, ShapeElementProperties, ImageElementProperties } from "../components/editor-canvas/ElementsRenderer";
 import type { LayerType } from "../context/EditorContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -85,6 +85,19 @@ function renderShapeToSvgString(props: ShapeElementProperties): string {
   return el ? `    ${el}` : "";
 }
 
+function renderImageToSvgString(props: ImageElementProperties): string {
+  const { x, y, width, height, url, opacity, rotation } = props;
+  const opacityAttr = opacity !== 1 ? ` opacity="${opacity}"` : "";
+  const el = `<image href="${escXml(url)}" x="${x}" y="${y}" width="${width}" height="${height}"${opacityAttr} preserveAspectRatio="none"/>`;
+
+  if (rotation) {
+    const cx = x + width / 2;
+    const cy = y + height / 2;
+    return `    <g transform="rotate(${rotation}, ${cx}, ${cy})">\n      ${el}\n    </g>`;
+  }
+  return `    ${el}`;
+}
+
 // ─── Build SVG string ────────────────────────────────────────────────────────
 
 export interface BuildSvgOptions {
@@ -125,6 +138,8 @@ export function buildSvgString(options: BuildSvgOptions): string {
 
     if (props.type === "shape") {
       elementStrings.push(renderShapeToSvgString(props));
+    } else if (props.type === "image") {
+      elementStrings.push(renderImageToSvgString(props));
     } else if (props.type === "text") {
       if (!props.content.trim()) continue;
 

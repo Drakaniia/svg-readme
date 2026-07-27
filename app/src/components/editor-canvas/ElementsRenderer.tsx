@@ -33,8 +33,21 @@ export interface ShapeElementProperties {
   rotation?: number;
 }
 
+export interface ImageElementProperties {
+  type: "image";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Base64 data URL or external URL */
+  url: string;
+  opacity: number;
+  /** Rotation in degrees around the image's own center (0–360). */
+  rotation?: number;
+}
+
 /** Union of all element property types */
-export type ElementProperties = TextElementProperties | ShapeElementProperties;
+export type ElementProperties = TextElementProperties | ShapeElementProperties | ImageElementProperties;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,9 +91,15 @@ function getShapeBoundingBox(props: ShapeElementProperties) {
   return { x: props.x, y: props.y, width: props.width, height: props.height };
 }
 
+/** Bounding box for an image element (same coords as the image itself). */
+function getImageBoundingBox(props: ImageElementProperties) {
+  return { x: props.x, y: props.y, width: props.width, height: props.height };
+}
+
 /** Returns bounding box for any element type — used for rubber-band selection */
 export function getElementBoundingBox(props: ElementProperties) {
   if (props.type === "text") return getTextBoundingBox(props);
+  if (props.type === "image") return getImageBoundingBox(props);
   return getShapeBoundingBox(props);
 }
 
@@ -339,6 +358,68 @@ function ShapeElement({
   );
 }
 
+function ImageElement({
+  properties,
+  isSelected,
+  isRubberBandHighlighted,
+}: {
+  properties: ImageElementProperties;
+  isSelected: boolean;
+  isRubberBandHighlighted?: boolean;
+}) {
+  const { x, y, width, height, url, opacity, rotation } = properties;
+  const showHighlight = isSelected || isRubberBandHighlighted;
+
+  const selectionStroke =
+    isRubberBandHighlighted && !isSelected ? "#60a5fa" : "#3b82f6";
+  const selectionDash =
+    isRubberBandHighlighted && !isSelected ? "3 2" : undefined;
+  const selectionFill =
+    isRubberBandHighlighted && !isSelected
+      ? "rgba(59,130,246,0.08)"
+      : "none";
+
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const rotateTransform = rotation
+    ? `rotate(${rotation}, ${cx}, ${cy})`
+    : undefined;
+
+  return (
+    <g
+      className="canvas-element"
+      data-layer-type="image"
+      transform={rotateTransform}
+    >
+      <image
+        href={url}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        opacity={opacity}
+        preserveAspectRatio="none"
+      />
+      {/* Invisible hit area for easier selection */}
+      <rect x={x} y={y} width={width} height={height} fill="transparent" />
+      {showHighlight && (
+        <rect
+          x={x - 2}
+          y={y - 2}
+          width={width + 4}
+          height={height + 4}
+          fill={selectionFill}
+          stroke={selectionStroke}
+          strokeWidth={1}
+          strokeDasharray={selectionDash}
+          rx={2}
+          className="pointer-events-none"
+        />
+      )}
+    </g>
+  );
+}
+
 // ─── Main Renderer ───────────────────────────────────────────────────────────
 
 interface ElementsRendererProps {
@@ -411,6 +492,12 @@ export default function ElementsRenderer({
                 isRubberBandHighlighted={isRubberBandHighlighted}
                 isEditing={isEditing}
               />
+            ) : props.type === "image" ? (
+              <ImageElement
+                properties={props}
+                isSelected={isSelected}
+                isRubberBandHighlighted={isRubberBandHighlighted}
+              />
             ) : (
               <ShapeElement
                 properties={props}
@@ -425,4 +512,4 @@ export default function ElementsRenderer({
   );
 }
 
-export { getTextBoundingBox, getShapeBoundingBox };
+export { getTextBoundingBox, getShapeBoundingBox, getImageBoundingBox };
