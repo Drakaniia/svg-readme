@@ -3,7 +3,6 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   Move,
   Eye,
   Download,
@@ -12,28 +11,26 @@ import {
   Image,
   Check,
 } from "lucide-react";
-import { useEditor } from "../../context/EditorContext";
-import type { TextElementProperties } from "../editor-canvas/ElementsRenderer";
+import type { ElementProperties, TextElementProperties } from "../editor-canvas/ElementsRenderer";
 import { getTextBoundingBox } from "../editor-canvas/ElementsRenderer";
 import ColorPickerPopover from "./ColorPickerPopover";
 
+// ─── Props ────────────────────────────────────────────────────────────────────
+
 interface EditorRightBarProps {
   onExport?: () => void;
-  elementProperties: Record<string, TextElementProperties>;
-  selectedLayerIds: string[];
-  onMoveElement: (id: string, x: number, y: number) => void;
-  onUpdateElementProperty: (
-    id: string,
-    updates: Partial<TextElementProperties>,
-  ) => void;
+  selectedLayerIds?: string[];
+  elementProperties?: Record<string, ElementProperties>;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
 }
 
 export default function EditorRightBar({
   onExport,
-  elementProperties,
   selectedLayerIds,
+  elementProperties,
+  onUpdateProperties,
   onMoveElement,
-  onUpdateElementProperty,
 }: EditorRightBarProps) {
   const [activeTab, setActiveTab] = useState<"design" | "animate" | "export">(
     "design",
@@ -41,8 +38,6 @@ export default function EditorRightBar({
   const [copiedType, setCopiedType] = useState<"svg" | "markdown" | null>(null);
 
   const handleCopySvg = async () => {
-    // We need to get the SVG string - we'll copy from the export function
-    // For now, dispatch a custom event that Editor.tsx listens to
     window.dispatchEvent(new CustomEvent("copy-svg-code"));
     setCopiedType("svg");
     setTimeout(() => setCopiedType(null), 2000);
@@ -53,6 +48,14 @@ export default function EditorRightBar({
     setCopiedType("markdown");
     setTimeout(() => setCopiedType(null), 2000);
   };
+
+  // Determine selected element
+  const selectedId =
+    selectedLayerIds && selectedLayerIds.length === 1
+      ? selectedLayerIds[0]
+      : null;
+  const selectedProps =
+    selectedId && elementProperties ? elementProperties[selectedId] : null;
 
   return (
     <aside className="w-80 shrink-0 border-l border-white/5 bg-[#09090b]/95 backdrop-blur-xl flex flex-col z-10 shadow-[-4px_0_24px_rgba(0,0,0,0.2)]">
@@ -93,10 +96,13 @@ export default function EditorRightBar({
       <div className="flex-1 overflow-y-auto overflow-y-scroll scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent">
         {activeTab === "design" && (
           <DesignTab
-            elementProperties={elementProperties}
-            selectedLayerIds={selectedLayerIds}
+            selectedId={selectedId}
+            selectedProps={selectedProps}
+            onUpdateProperties={onUpdateProperties}
             onMoveElement={onMoveElement}
-            onUpdateElementProperty={onUpdateElementProperty}
+            multiSelectCount={selectedLayerIds?.length ?? 0}
+            allElementProperties={elementProperties}
+            allSelectedLayerIds={selectedLayerIds}
           />
         )}
         {activeTab === "animate" && <AnimateTab />}
@@ -113,207 +119,214 @@ export default function EditorRightBar({
   );
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Shared input field component for the right sidebar */
+function PropInput({
+  label,
+  value,
+  type = "text",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  type?: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
+      <span className="text-zinc-500 text-xs font-mono">{label}</span>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="bg-transparent text-sm w-full outline-none text-zinc-300 focus:text-white"
+      />
+    </div>
+  );
+}
+
 // ─── Design Tab ───────────────────────────────────────────────────────────────
 
 interface DesignTabProps {
-  elementProperties: Record<string, TextElementProperties>;
-  selectedLayerIds: string[];
-  onMoveElement: (id: string, x: number, y: number) => void;
-  onUpdateElementProperty: (
-    id: string,
-    updates: Partial<TextElementProperties>,
-  ) => void;
+  selectedId: string | null;
+  selectedProps: ElementProperties | null;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
+  multiSelectCount: number;
+  allElementProperties?: Record<string, ElementProperties>;
+  allSelectedLayerIds?: string[];
 }
 
 function DesignTab({
-  elementProperties,
-  selectedLayerIds,
+  selectedId,
+  selectedProps,
+  onUpdateProperties,
   onMoveElement,
-  onUpdateElementProperty,
+  multiSelectCount,
+  allElementProperties,
+  allSelectedLayerIds,
 }: DesignTabProps) {
-  const { selectedLayerId } = useEditor();
-  const props = selectedLayerId ? elementProperties[selectedLayerId] : null;
-  const hasMultipleSelection = selectedLayerIds.length >= 2;
-  const hasThreeOrMore = selectedLayerIds.length >= 3;
-
-  // ── Empty state ───────────────────────────────────────────────────────────
-  if (!props) {
+  if (multiSelectCount > 1) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center mb-3">
-          <Move className="w-4 h-4 text-zinc-500" />
+      <div className="p-8 flex flex-col items-center justify-center text-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
+          <Move className="w-4 h-4 text-zinc-400" />
         </div>
-        <p className="text-sm text-zinc-500">
-          Select a layer to edit its properties
-        </p>
+        <div>
+          <h3 className="text-sm font-medium text-zinc-300 mb-1">
+            Multiple Selection
+          </h3>
+          <p className="text-xs text-zinc-500">
+            {multiSelectCount} layers selected. Select a single layer to edit
+            its properties.
+          </p>
+        </div>
       </div>
     );
   }
 
-  if (!selectedLayerId) return null;
+  if (!selectedId || !selectedProps) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center text-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
+          <Eye className="w-4 h-4 text-zinc-400" />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-zinc-300 mb-1">
+            No Selection
+          </h3>
+          <p className="text-xs text-zinc-500">
+            Select a layer on the canvas to edit its properties.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // ── Layout handlers ──────────────────────────────────────────────────────
-  const handleXChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val)) onUpdateElementProperty(selectedLayerId, { x: val });
-  };
+  const update = (updates: Partial<ElementProperties>) =>
+    onUpdateProperties?.(selectedId, updates);
 
-  const handleYChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val)) onUpdateElementProperty(selectedLayerId, { y: val });
-  };
+  // ── Common Layout Section (all types have x, y, width, height) ────────
+  const layoutSection = (
+    <div className="p-5 border-b border-white/5">
+      <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+        Layout
+      </div>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <PropInput
+          label="X"
+          value={String(Math.round(selectedProps.x))}
+          type="number"
+          onChange={(v) => update({ x: Number(v) || 0 })}
+        />
+        <PropInput
+          label="Y"
+          value={String(Math.round(selectedProps.y))}
+          type="number"
+          onChange={(v) => update({ y: Number(v) || 0 })}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <PropInput
+          label="W"
+          value={String(
+            typeof selectedProps.width === "number"
+              ? Math.round(selectedProps.width)
+              : selectedProps.width,
+          )}
+          type={typeof selectedProps.width === "number" ? "number" : "text"}
+          onChange={(v) => {
+            const parsed = Number(v);
+            if (!isNaN(parsed) && parsed > 0)
+              update({ width: parsed } as Partial<ElementProperties>);
+          }}
+        />
+        <PropInput
+          label="H"
+          value={String(Math.round(selectedProps.height))}
+          type="number"
+          onChange={(v) => {
+            const parsed = Number(v);
+            if (!isNaN(parsed) && parsed > 0) update({ height: parsed });
+          }}
+        />
+      </div>
+    </div>
+  );
 
-  const handleWChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    if (val === "auto") {
-      onUpdateElementProperty(selectedLayerId, { width: "auto" });
-    } else {
-      const num = parseFloat(val);
-      if (!isNaN(num)) onUpdateElementProperty(selectedLayerId, { width: num });
-    }
-  };
+  // ── Rotation / Opacity Section (shapes & images) ──────────────────────
+  const transformSection =
+    selectedProps.type === "shape" || selectedProps.type === "image" ? (
+      <div className="p-5 border-b border-white/5">
+        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+          Transform
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <PropInput
+            label="R°"
+            value={String(Math.round(selectedProps.rotation ?? 0))}
+            type="number"
+            onChange={(v) => update({ rotation: Number(v) || 0 })}
+          />
+          <PropInput
+            label="Op"
+            value={String(selectedProps.opacity)}
+            type="number"
+            onChange={(v) => {
+              const parsed = Number(v);
+              if (!isNaN(parsed))
+                update({ opacity: Math.max(0, Math.min(1, parsed)) });
+            }}
+          />
+        </div>
+      </div>
+    ) : null;
 
-  const handleHChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val)) onUpdateElementProperty(selectedLayerId, { height: val });
-  };
+  // ── Alignment handler (multi-select) ─────────────────────────────────────
+  const hasMultipleSelection = (allSelectedLayerIds?.length ?? 0) >= 2;
+  const hasThreeOrMore = (allSelectedLayerIds?.length ?? 0) >= 3;
 
-  // ── Typography handlers ──────────────────────────────────────────────────
-  const handleFontFamilyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdateElementProperty(selectedLayerId, { fontFamily: e.target.value });
-  };
-
-  const FONT_WEIGHT_MAP: Record<string, number> = {
-    Regular: 400,
-    Medium: 500,
-    SemiBold: 600,
-    Bold: 700,
-  };
-  const WEIGHT_TO_LABEL: Record<number, string> = {
-    400: "Regular",
-    500: "Medium",
-    600: "SemiBold",
-    700: "Bold",
-  };
-
-  const handleFontWeightChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const w = FONT_WEIGHT_MAP[e.target.value];
-    if (w) onUpdateElementProperty(selectedLayerId, { fontWeight: w });
-  };
-
-  const handleFontSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (!isNaN(val))
-      onUpdateElementProperty(selectedLayerId, { fontSize: val });
-  };
-
-  const handleTextAlignChange = (align: "left" | "center" | "right") => {
-    if (!selectedLayerId || !props) return;
-
-    // Compute the text width for position compensation.
-    // x represents the textAnchor point: left edge (left), center (center), or right edge (right).
-    // When changing alignment, we adjust x so the visual position stays the same.
-    // IMPORTANT: always use the actual rendered text width, not the fixed box width,
-    // so alignment changes don't incorrectly shift x by hundreds of pixels.
-    const charWidth = props.fontSize * 0.6;
-    const textWidth = Math.max(props.content.length * charWidth, 20);
-
-    // Current visual left edge of the text
-    let visualLeft = props.x;
-    if (props.textAlign === "center") visualLeft = props.x - textWidth / 2;
-    else if (props.textAlign === "right") visualLeft = props.x - textWidth;
-
-    // New x that keeps the visual left edge the same with the new alignment
-    let newX = visualLeft;
-    if (align === "center") newX = visualLeft + textWidth / 2;
-    else if (align === "right") newX = visualLeft + textWidth;
-
-    onUpdateElementProperty(selectedLayerId, {
-      textAlign: align,
-      x: Math.round(newX),
-    });
-  };
-
-  // ── Background remove handler ──────────────────────────────────────────────
-  const handleRemoveBackground = () => {
-    onUpdateElementProperty(selectedLayerId, { backgroundColor: undefined });
-  };
-
-  // ── Alignment handlers ──────────────────────────────────────────────────
   const handleAlign = useCallback(
     (alignType: string) => {
-      const selected = selectedLayerIds.filter((id) => elementProperties[id]);
-      if (selected.length < 2) return;
+      const ids = allSelectedLayerIds?.filter((id) => allElementProperties?.[id]) ?? [];
+      if (ids.length < 2 || !onMoveElement) return;
 
-      const bbs = selected.map((id) => ({
+      const bbs = ids.map((id) => ({
         id,
-        bb: getTextBoundingBox(elementProperties[id]),
-        props: elementProperties[id],
+        bb: getTextBoundingBox(allElementProperties![id] as TextElementProperties),
+        props: allElementProperties![id],
       }));
 
       switch (alignType) {
         case "left": {
           const minX = Math.min(...bbs.map((b) => b.bb.x));
-          bbs.forEach((b) => {
-            onMoveElement(b.id, b.props.x + (minX - b.bb.x), b.props.y);
-          });
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (minX - b.bb.x), b.props.y));
           break;
         }
         case "centerH": {
-          const avgCenter =
-            bbs.reduce((sum, b) => sum + b.bb.x + b.bb.width / 2, 0) /
-            bbs.length;
-          bbs.forEach((b) => {
-            onMoveElement(
-              b.id,
-              b.props.x + (avgCenter - b.bb.width / 2 - b.bb.x),
-              b.props.y,
-            );
-          });
+          const avgCenter = bbs.reduce((sum, b) => sum + b.bb.x + b.bb.width / 2, 0) / bbs.length;
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (avgCenter - b.bb.width / 2 - b.bb.x), b.props.y));
           break;
         }
         case "right": {
           const maxRight = Math.max(...bbs.map((b) => b.bb.x + b.bb.width));
-          bbs.forEach((b) => {
-            onMoveElement(
-              b.id,
-              b.props.x + (maxRight - b.bb.width - b.bb.x),
-              b.props.y,
-            );
-          });
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (maxRight - b.bb.width - b.bb.x), b.props.y));
           break;
         }
         case "top": {
           const minY = Math.min(...bbs.map((b) => b.bb.y));
-          bbs.forEach((b) => {
-            onMoveElement(b.id, b.props.x, b.props.y + (minY - b.bb.y));
-          });
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (minY - b.bb.y)));
           break;
         }
         case "centerV": {
-          const avgCenter =
-            bbs.reduce((sum, b) => sum + b.bb.y + b.bb.height / 2, 0) /
-            bbs.length;
-          bbs.forEach((b) => {
-            onMoveElement(
-              b.id,
-              b.props.x,
-              b.props.y + (avgCenter - b.bb.height / 2 - b.bb.y),
-            );
-          });
+          const avgCenter = bbs.reduce((sum, b) => sum + b.bb.y + b.bb.height / 2, 0) / bbs.length;
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (avgCenter - b.bb.height / 2 - b.bb.y)));
           break;
         }
         case "bottom": {
-          const maxBottom = Math.max(
-            ...bbs.map((b) => b.bb.y + b.bb.height),
-          );
-          bbs.forEach((b) => {
-            onMoveElement(
-              b.id,
-              b.props.x,
-              b.props.y + (maxBottom - b.bb.height - b.bb.y),
-            );
-          });
+          const maxBottom = Math.max(...bbs.map((b) => b.bb.y + b.bb.height));
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (maxBottom - b.bb.height - b.bb.y)));
           break;
         }
         case "distributeH": {
@@ -324,10 +337,7 @@ function DesignTab({
           const objectsWidth = sorted.reduce((s, b) => s + b.bb.width, 0);
           const gap = objectsWidth > 0 ? (totalSpan - objectsWidth) / (sorted.length - 1) : totalSpan / (sorted.length - 1);
           let curX = first.bb.x;
-          sorted.forEach((b) => {
-            onMoveElement(b.id, b.props.x + (curX - b.bb.x), b.props.y);
-            curX += b.bb.width + gap;
-          });
+          sorted.forEach((b) => { onMoveElement(b.id, b.props.x + (curX - b.bb.x), b.props.y); curX += b.bb.width + gap; });
           break;
         }
         case "distributeV": {
@@ -338,109 +348,37 @@ function DesignTab({
           const objectsHeight = sorted.reduce((s, b) => s + b.bb.height, 0);
           const gap = objectsHeight > 0 ? (totalSpan - objectsHeight) / (sorted.length - 1) : totalSpan / (sorted.length - 1);
           let curY = first.bb.y;
-          sorted.forEach((b) => {
-            onMoveElement(b.id, b.props.x, b.props.y + (curY - b.bb.y));
-            curY += b.bb.height + gap;
-          });
+          sorted.forEach((b) => { onMoveElement(b.id, b.props.x, b.props.y + (curY - b.bb.y)); curY += b.bb.height + gap; });
           break;
         }
       }
     },
-    [selectedLayerIds, elementProperties, onMoveElement],
+    [allSelectedLayerIds, allElementProperties, onMoveElement],
   );
 
-  return (
-    <>
-      {/* Layout Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Layout
-        </div>
-        <div className="grid grid-cols-2 gap-3 mb-4">
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">X</span>
-            <input
-              type="text"
-              value={Math.round(props.x)}
-              onChange={handleXChange}
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">Y</span>
-            <input
-              type="text"
-              value={Math.round(props.y)}
-              onChange={handleYChange}
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">W</span>
-            <input
-              type="text"
-              value={props.width === "auto" ? "auto" : Math.round(props.width)}
-              onChange={handleWChange}
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-          <div className="flex items-center gap-2 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <span className="text-zinc-500 text-xs font-mono">H</span>
-            <input
-              type="text"
-              value={Math.round(props.height)}
-              onChange={handleHChange}
-              className="bg-transparent text-sm w-full outline-none text-zinc-300"
-            />
-          </div>
-        </div>
-      </div>
+  // ── Type-specific sections ────────────────────────────────────────────
+  if (selectedProps.type === "text") {
+    return (
+      <>
+        {layoutSection}
 
-      {/* Typography Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Typography
-        </div>
-
-        <div className="relative mb-4">
-          <select
-            value={props.fontFamily}
-            onChange={handleFontFamilyChange}
-            className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
-          >
-            <option value="Inter">Inter</option>
-            <option value="Poppins">Poppins</option>
-            <option value="JetBrains Mono">JetBrains Mono</option>
-          </select>
-          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
+        {/* Typography */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Typography
           </div>
-        </div>
 
-        <div className="flex gap-3 mb-4">
-          <div className="relative flex-1">
+          <div className="relative mb-3">
             <select
-              value={WEIGHT_TO_LABEL[props.fontWeight] ?? "Regular"}
-              onChange={handleFontWeightChange}
+              value={selectedProps.fontFamily}
+              onChange={(e) => update({ fontFamily: e.target.value })}
               className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
             >
-              <option value="Regular">Regular</option>
-              <option value="Medium">Medium</option>
-              <option value="SemiBold">SemiBold</option>
-              <option value="Bold">Bold</option>
+              <option value="Inter">Inter</option>
+              <option value="Poppins">Poppins</option>
+              <option value="JetBrains Mono">JetBrains Mono</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Outfit">Outfit</option>
             </select>
             <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
               <svg
@@ -457,210 +395,199 @@ function DesignTab({
               </svg>
             </div>
           </div>
-          <div className="w-20 bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 flex items-center focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/20 transition-all">
-            <input
-              type="text"
-              value={props.fontSize}
-              onChange={handleFontSizeChange}
-              className="bg-transparent text-sm w-full outline-none text-zinc-300 text-center"
+
+          <div className="flex gap-2 mb-3">
+            <div className="relative flex-1">
+              <select
+                value={String(selectedProps.fontWeight)}
+                onChange={(e) =>
+                  update({ fontWeight: Number(e.target.value) })
+                }
+                className="w-full bg-zinc-900 border border-white/5 rounded-md px-3 py-2.5 text-sm text-zinc-300 outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all appearance-none cursor-pointer"
+              >
+                <option value="400">Regular</option>
+                <option value="500">Medium</option>
+                <option value="600">SemiBold</option>
+                <option value="700">Bold</option>
+              </select>
+              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-zinc-500">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </div>
+            </div>
+            <PropInput
+              label="Sz"
+              value={String(selectedProps.fontSize)}
+              type="number"
+              onChange={(v) => {
+                const parsed = Number(v);
+                if (!isNaN(parsed) && parsed > 0)
+                  update({ fontSize: parsed });
+              }}
             />
           </div>
+
+          {/* Text Alignment */}
+          <div className="flex items-center gap-1.5 bg-zinc-900/50 p-1.5 rounded-md border border-white/5">
+            {(["left", "center", "right"] as const).map((align) => (
+              <button
+                key={align}
+                onClick={() => update({ textAlign: align })}
+                className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
+                  selectedProps.textAlign === align
+                    ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                {align === "left" && <AlignLeft className="w-4 h-4" />}
+                {align === "center" && <AlignCenter className="w-4 h-4" />}
+                {align === "right" && <AlignRight className="w-4 h-4" />}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-zinc-900/50 p-1.5 rounded-md border border-white/5">
-          <button
-            onClick={() => handleTextAlignChange("left")}
-            className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
-              props.textAlign === "left"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <AlignLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleTextAlignChange("center")}
-            className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
-              props.textAlign === "center"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <AlignCenter className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleTextAlignChange("right")}
-            className={`flex-1 p-2 rounded flex items-center justify-center transition-colors ${
-              props.textAlign === "right"
-                ? "bg-zinc-800 text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <AlignRight className="w-4 h-4" />
-          </button>
-          <button className="flex-1 p-2 rounded text-zinc-400 flex items-center justify-center transition-colors opacity-40 cursor-not-allowed">
-            <AlignJustify className="w-4 h-4" />
-          </button>
+        {/* Text Color (ColorPickerPopover) */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Text Color
+          </div>
+          <ColorPickerPopover
+            value={selectedProps.color}
+            onChange={(hex) => update({ color: hex })}
+          />
         </div>
-      </div>
 
-      {/* Align Objects Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Align Objects
-        </div>
-        <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-3 gap-1.5">
-            <AlignBtn
-              onClick={() => handleAlign("left")}
-              disabled={!hasMultipleSelection}
-              label="Left"
-            >
-              <AlignLeftIcon />
-            </AlignBtn>
-            <AlignBtn
-              onClick={() => handleAlign("centerH")}
-              disabled={!hasMultipleSelection}
-              label="Center"
-            >
-              <AlignCenterHIcon />
-            </AlignBtn>
-            <AlignBtn
-              onClick={() => handleAlign("right")}
-              disabled={!hasMultipleSelection}
-              label="Right"
-            >
-              <AlignRightIcon />
-            </AlignBtn>
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            <AlignBtn
-              onClick={() => handleAlign("top")}
-              disabled={!hasMultipleSelection}
-              label="Top"
-            >
-              <AlignTopIcon />
-            </AlignBtn>
-            <AlignBtn
-              onClick={() => handleAlign("centerV")}
-              disabled={!hasMultipleSelection}
-              label="Middle"
-            >
-              <AlignMiddleIcon />
-            </AlignBtn>
-            <AlignBtn
-              onClick={() => handleAlign("bottom")}
-              disabled={!hasMultipleSelection}
-              label="Bottom"
-            >
-              <AlignBottomIcon />
-            </AlignBtn>
-          </div>
-          <div className="mt-2 pt-2 border-t border-white/5">
-            <div className="grid grid-cols-2 gap-1.5">
-              <AlignBtn
-                onClick={() => handleAlign("distributeH")}
-                disabled={!hasThreeOrMore}
-                label="Distribute H"
-              >
-                <DistributeHIcon />
-              </AlignBtn>
-              <AlignBtn
-                onClick={() => handleAlign("distributeV")}
-                disabled={!hasThreeOrMore}
-                label="Distribute V"
-              >
-                <DistributeVIcon />
-              </AlignBtn>
+        {/* Background Fill */}
+        <div className="p-5 border-b border-white/5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider font-semibold">
+              Background Fill
             </div>
+            {selectedProps.backgroundColor && (
+              <button
+                onClick={() => update({ backgroundColor: undefined })}
+                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+              >
+                Remove
+              </button>
+            )}
           </div>
-        </div>
-      </div>
-
-      {/* Text Color Section — clicking the swatch opens ColorPickerPopover */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold">
-          Text Color
-        </div>
-        <ColorPickerPopover
-          value={props.color}
-          onChange={(hex) =>
-            onUpdateElementProperty(selectedLayerId, { color: hex })
-          }
-        />
-      </div>
-
-      {/* Background Fill Section — clicking the swatch opens ColorPickerPopover */}
-      <div className="p-6 border-b border-white/5">
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider font-semibold">
-            Background Fill
-          </div>
-          {props.backgroundColor && (
+          {selectedProps.backgroundColor ? (
+            <ColorPickerPopover
+              value={selectedProps.backgroundColor}
+              onChange={(hex) => update({ backgroundColor: hex })}
+            />
+          ) : (
             <button
-              onClick={handleRemoveBackground}
-              className="text-[10px] text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+              onClick={() => update({ backgroundColor: "#333333" })}
+              className="w-full py-2.5 text-xs text-zinc-500 hover:text-zinc-300 border border-dashed border-white/10 hover:border-white/20 rounded-md transition-colors font-medium"
             >
-              Remove
+              + Add background fill
             </button>
           )}
         </div>
 
-        {props.backgroundColor ? (
-          <ColorPickerPopover
-            value={props.backgroundColor}
-            onChange={(hex) =>
-              onUpdateElementProperty(selectedLayerId, {
-                backgroundColor: hex,
-              })
-            }
-          />
-        ) : (
-          <button
-            onClick={() =>
-              onUpdateElementProperty(selectedLayerId, {
-                backgroundColor: "#333333",
-              })
-            }
-            className="w-full py-2.5 text-xs text-zinc-500 hover:text-zinc-300 border border-dashed border-white/10 hover:border-white/20 rounded-md transition-colors font-medium"
-          >
-            + Add background fill
-          </button>
-        )}
-      </div>
+        {/* Align Objects */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Align Objects
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <AlignBtn onClick={() => handleAlign("left")} disabled={!hasMultipleSelection} label="Left"><AlignLeftIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("centerH")} disabled={!hasMultipleSelection} label="Center"><AlignCenterHIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("right")} disabled={!hasMultipleSelection} label="Right"><AlignRightIcon /></AlignBtn>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <AlignBtn onClick={() => handleAlign("top")} disabled={!hasMultipleSelection} label="Top"><AlignTopIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("centerV")} disabled={!hasMultipleSelection} label="Middle"><AlignMiddleIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("bottom")} disabled={!hasMultipleSelection} label="Bottom"><AlignBottomIcon /></AlignBtn>
+            </div>
+            <div className="mt-2 pt-2 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <AlignBtn onClick={() => handleAlign("distributeH")} disabled={!hasThreeOrMore} label="Distribute H"><DistributeHIcon /></AlignBtn>
+                <AlignBtn onClick={() => handleAlign("distributeV")} disabled={!hasThreeOrMore} label="Distribute V"><DistributeVIcon /></AlignBtn>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
-      {/* Effects Section */}
-      <div className="p-6 border-b border-white/5">
-        <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-4 font-semibold flex justify-between items-center">
-          Effects
-          <button className="text-zinc-400 hover:text-white transition-colors">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M5 12h14" />
-              <path d="M12 5v14" />
-            </svg>
-          </button>
+  if (selectedProps.type === "shape") {
+    return (
+      <>
+        {layoutSection}
+        {transformSection}
+
+        {/* Fill */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Fill
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="color"
+              value={selectedProps.fill}
+              onChange={(e) => update({ fill: e.target.value })}
+              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+            />
+            <input
+              type="text"
+              value={selectedProps.fill}
+              onChange={(e) => update({ fill: e.target.value })}
+              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
+            />
+          </div>
         </div>
-        <div className="flex items-center justify-between text-sm text-zinc-300 py-2 group cursor-pointer hover:bg-white/5 rounded px-3 -mx-3 transition-colors">
-          <span className="flex items-center gap-3">
-            <Eye className="w-4 h-4 text-zinc-500 group-hover:text-zinc-300 transition-colors" />
-            Drop Shadow
-          </span>
-          <button className="text-zinc-500 hover:text-zinc-300 transition-colors">
-            <Move className="w-4 h-4" />
-          </button>
+
+        {/* Stroke */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Stroke
+          </div>
+          <div className="flex items-center gap-3 mb-2">
+            <input
+              type="color"
+              value={selectedProps.stroke || "#ffffff"}
+              onChange={(e) => update({ stroke: e.target.value })}
+              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+            />
+            <input
+              type="text"
+              value={selectedProps.stroke}
+              onChange={(e) => update({ stroke: e.target.value })}
+              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
+            />
+          </div>
+          <PropInput
+            label="Wt"
+            value={String(selectedProps.strokeWidth)}
+            type="number"
+            onChange={(v) => {
+              const parsed = Number(v);
+              if (!isNaN(parsed) && parsed >= 0)
+                update({ strokeWidth: parsed });
+            }}
+          />
         </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  }
+
+  return null;
 }
 
 // ─── Alignment UI Components ─────────────────────────────────────────────────

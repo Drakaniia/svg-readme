@@ -29,11 +29,11 @@ const tools: { id: EditorTool | "shapes"; icon: React.ReactNode; name: string }[
 
 export const availableShapes: { id: EditorTool; name: string; icon: React.ReactNode }[] = [
   { id: "rect", name: "Rectangle", icon: <Square className="w-4 h-4" /> },
-  { id: "rect", name: "Circle", icon: <Circle className="w-4 h-4" /> },
-  { id: "rect", name: "Triangle", icon: <Triangle className="w-4 h-4" /> },
-  { id: "rect", name: "Star", icon: <Star className="w-4 h-4" /> },
-  { id: "rect", name: "Hexagon", icon: <Hexagon className="w-4 h-4" /> },
-  { id: "rect", name: "Line", icon: <Slash className="w-4 h-4" /> },
+  { id: "circle", name: "Circle", icon: <Circle className="w-4 h-4" /> },
+  { id: "triangle", name: "Triangle", icon: <Triangle className="w-4 h-4" /> },
+  { id: "star", name: "Star", icon: <Star className="w-4 h-4" /> },
+  { id: "hexagon", name: "Hexagon", icon: <Hexagon className="w-4 h-4" /> },
+  { id: "line", name: "Line", icon: <Slash className="w-4 h-4" /> },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -92,7 +92,13 @@ export default function ToolPanel({ onToolSelect }: ToolPanelProps) {
         {tools.map((tool) => {
           const isShapes = tool.id === "shapes";
           const isActive = isShapes
-            ? showShapeSelector || activeTool === "rect"
+            ? showShapeSelector ||
+              activeTool === "rect" ||
+              activeTool === "circle" ||
+              activeTool === "triangle" ||
+              activeTool === "star" ||
+              activeTool === "hexagon" ||
+              activeTool === "line"
             : activeTool === tool.id;
 
           const buttonElement = (

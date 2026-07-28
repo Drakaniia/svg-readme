@@ -4,7 +4,7 @@ import EditorSidebar from "../components/ui/EditorSidebar";
 import EditorRightBar from "../components/ui/EditorRightBar";
 import type { EditorTool } from "../context/EditorContext";
 import { type FrameSize } from "../components/editor-sidebar/FramePanel";
-import type { TextElementProperties } from "../components/editor-canvas/ElementsRenderer";
+import type { ElementProperties } from "../components/editor-canvas/ElementsRenderer";
 
 interface EditorLayoutProps {
   children: ReactNode;
@@ -12,13 +12,12 @@ interface EditorLayoutProps {
   setFrameSize: (size: FrameSize) => void;
   onToolSelect?: (tool: EditorTool) => void;
   onExport?: () => void;
-  elementProperties: Record<string, TextElementProperties>;
-  selectedLayerIds: string[];
-  onMoveElement: (id: string, x: number, y: number) => void;
-  onUpdateElementProperty: (
-    id: string,
-    updates: Partial<TextElementProperties>,
-  ) => void;
+  onNewProject?: () => void;
+  isProjectActive?: boolean;
+  selectedLayerIds?: string[];
+  elementProperties?: Record<string, ElementProperties>;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
 }
 
 export default function EditorLayout({
@@ -27,14 +26,16 @@ export default function EditorLayout({
   setFrameSize,
   onToolSelect,
   onExport,
-  elementProperties,
+  onNewProject,
+  isProjectActive,
   selectedLayerIds,
+  elementProperties,
+  onUpdateProperties,
   onMoveElement,
-  onUpdateElementProperty,
 }: EditorLayoutProps) {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
-      <EditorTopNav onToolSelect={onToolSelect} onExport={onExport} />
+      <EditorTopNav onToolSelect={onToolSelect} onExport={onExport} onNewProject={onNewProject} isProjectActive={isProjectActive} />
 
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar
@@ -58,10 +59,10 @@ export default function EditorLayout({
 
         <EditorRightBar
           onExport={onExport}
-          elementProperties={elementProperties}
           selectedLayerIds={selectedLayerIds}
+          elementProperties={elementProperties}
+          onUpdateProperties={onUpdateProperties}
           onMoveElement={onMoveElement}
-          onUpdateElementProperty={onUpdateElementProperty}
         />
       </div>
     </div>

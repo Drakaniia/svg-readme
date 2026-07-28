@@ -16,6 +16,7 @@ import { render } from "@testing-library/react";
 let _layerCounter = 0;
 export function resetLayerCounter() {
   _layerCounter = 0;
+  localStorage.clear();
 }
 export function nextLayerId(): string {
   _layerCounter += 1;

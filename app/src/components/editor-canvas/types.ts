@@ -1,9 +1,10 @@
 import type { LayerType, EditorTool } from "../../context/EditorContext";
-import type { TextElementProperties } from "./ElementsRenderer";
+import type { TextElementProperties, ElementProperties, ShapeKind } from "./ElementsRenderer";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 export const MIN_TEXTBOX_SIZE = 20;
+export const MIN_SHAPE_SIZE = 10;
 
 export const DEFAULT_TEXT_PROPS: Omit<
   TextElementProperties,
@@ -19,6 +20,31 @@ export const DEFAULT_TEXT_PROPS: Omit<
   backgroundColor: undefined,
   textAlign: "left",
 };
+
+/** Tool IDs that are shape-placement tools */
+export const SHAPE_TOOLS = new Set<EditorTool>([
+  "rect",
+  "circle",
+  "triangle",
+  "star",
+  "hexagon",
+  "line",
+]);
+
+/** Map from a shape EditorTool to its ShapeKind */
+export function toolToShapeKind(tool: EditorTool): ShapeKind | null {
+  if (
+    tool === "rect" ||
+    tool === "circle" ||
+    tool === "triangle" ||
+    tool === "star" ||
+    tool === "hexagon" ||
+    tool === "line"
+  ) {
+    return tool;
+  }
+  return null;
+}
 
 // ─── Drag types ───────────────────────────────────────────────────────────────
 
@@ -43,6 +69,15 @@ export interface TextDragState {
   currentY: number;
 }
 
+/** State for dragging to create a shape */
+export interface ShapeDragState {
+  kind: ShapeKind;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+}
+
 /** State for rubber-band / marquee selection on empty canvas. */
 export interface RubberBandState {
   startX: number;
@@ -51,6 +86,30 @@ export interface RubberBandState {
   currentY: number;
   /** Whether Shift was held when the drag started — if true, adds to existing selection. */
   addToExisting: boolean;
+}
+
+/** State for resizing an element */
+export interface ResizeState {
+  elementId: string;
+  handle: "tl" | "tc" | "tr" | "ml" | "mr" | "bl" | "bc" | "br";
+  startX: number;
+  startY: number;
+  initialX: number;
+  initialY: number;
+  initialWidth: number;
+  initialHeight: number;
+}
+
+/** State for rotating an element by dragging the rotate handle */
+export interface RotateState {
+  elementId: string;
+  /** Center of the shape's bounding box in SVG coordinates */
+  centerX: number;
+  centerY: number;
+  /** Angle (degrees) from center to mousedown point */
+  startAngle: number;
+  /** Shape's rotation before the drag started */
+  initialRotation: number;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -63,12 +122,20 @@ export interface CanvasProps {
   selectedLayerId: string | null;
   selectedLayerIds: string[];
   isEditingText: boolean;
-  elementProperties: Record<string, TextElementProperties>;
+  elementProperties: Record<string, ElementProperties>;
   /** Called when user clicks on canvas (text tool) to create text */
   onCreateText: (
     x: number,
     y: number,
     width: number | "auto",
+    height: number,
+  ) => void;
+  /** Called when user drags on canvas (shape tool) to place a shape */
+  onCreateShape: (
+    kind: ShapeKind,
+    x: number,
+    y: number,
+    width: number,
     height: number,
   ) => void;
   /** Called when an element is selected */
@@ -85,6 +152,20 @@ export interface CanvasProps {
   onRubberBandSelect?: (ids: string[], addToExisting: boolean) => void;
   /** Called when an element is dragged to a new position */
   onMoveElement: (id: string, x: number, y: number) => void;
+  /** Called when an element begins resizing */
+  onResizeStart?: () => void;
+  /** Called when an element is resized */
+  onResizeElement?: (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void;
+  /** Called when an element begins rotating */
+  onRotateStart?: () => void;
+  /** Called when a shape is rotated via the rotate handle */
+  onRotateElement?: (id: string, rotation: number) => void;
   /** Called when editing state changes */
   onEditingChange: (editing: boolean) => void;
   /** Called when user wants to edit existing text */

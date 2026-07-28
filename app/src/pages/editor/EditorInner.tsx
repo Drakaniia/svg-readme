@@ -1,9 +1,9 @@
 import { useEffect, useCallback, useRef, useState } from "react";
 import EditorLayout from "../../layouts/EditorLayout";
-import { useEditor } from "../../context/EditorContext";
+import { useEditor, clearEditorStorage } from "../../context/EditorContext";
 import type { EditorTool, LayerType } from "../../context/EditorContext";
 import Canvas from "../../components/editor-canvas/Canvas";
-import type { TextElementProperties } from "../../components/editor-canvas/ElementsRenderer";
+import type { TextElementProperties, ShapeElementProperties, ImageElementProperties, ElementProperties, ShapeKind } from "../../components/editor-canvas/ElementsRenderer";
 import { createLayer } from "../../lib/api";
 import {
   buildSvgString,
@@ -12,17 +12,20 @@ import {
   copyMarkdown,
 } from "../../lib/export";
 
+// ── localStorage key for element properties ─────────────────────────────────
+const EP_STORAGE_KEY = "svg-readme-editor:elementProperties";
+
 // ── Types for clipboard and undo history ───────────────────────────────────
 
 interface ClipboardState {
   layers: LayerType[];
-  elementProperties: Record<string, TextElementProperties>;
+  elementProperties: Record<string, ElementProperties>;
 }
 
 interface HistoryAction {
-  type: "CREATE" | "DELETE" | "MOVE" | "UPDATE" | "PASTE";
+  type: "CREATE" | "DELETE" | "MOVE" | "UPDATE" | "PASTE" | "RESIZE" | "ROTATE";
   layers: LayerType[];
-  elementProperties: Record<string, TextElementProperties>;
+  elementProperties: Record<string, ElementProperties>;
   selectedLayerIds: string[];
 }
 
@@ -60,10 +63,24 @@ export function EditorInner() {
   const [customWidth, setCustomWidth] = useState("800");
   const [customHeight, setCustomHeight] = useState("200");
 
-  // Track element properties (position, styling for each layer)
+  // Track element properties (position, styling for each layer — text or shape)
   const [elementProperties, setElementProperties] = useState<
-    Record<string, TextElementProperties>
-  >({});
+    Record<string, ElementProperties>
+  >(() => {
+    try {
+      const raw = localStorage.getItem(EP_STORAGE_KEY);
+      return raw ? (JSON.parse(raw) as Record<string, ElementProperties>) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Persist elementProperties to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(EP_STORAGE_KEY, JSON.stringify(elementProperties));
+    } catch { /* ignore */ }
+  }, [elementProperties]);
 
   // Text editing state
   const [editingLayerId, setEditingLayerId] = useState<string | null>(null);
@@ -78,11 +95,25 @@ export function EditorInner() {
     future: [],
   });
 
-  // Ref to track if we're editing text for keyboard shortcut guard
+  // ── New Project — reset all state and clear localStorage ─────────────────
+  const handleNewProject = useCallback(() => {
+    clearEditorStorage();
+    localStorage.removeItem(EP_STORAGE_KEY);
+    setLayers([]);
+    setElementProperties({});
+    setSelectedLayerId(null);
+    setSelectedLayerIds([]);
+    setIsProjectActive(false);
+    setHistory({ past: [], future: [] });
+  }, [setLayers, setSelectedLayerId, setSelectedLayerIds, setIsProjectActive]);
+
   const isEditingRef = useRef(false);
   useEffect(() => {
     isEditingRef.current = isEditingText;
   }, [isEditingText]);
+
+  // Hidden file input for image uploads
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Ref for export data to avoid re-registering event listeners on every render
   const exportDataRef = useRef({ frameSize, elementProperties, layers });
@@ -158,7 +189,7 @@ export function EditorInner() {
     const copiedLayers = layers.filter((layer) =>
       selectedLayerIds.includes(layer.id),
     );
-    const copiedElementProperties: Record<string, TextElementProperties> = {};
+    const copiedElementProperties: Record<string, ElementProperties> = {};
     selectedLayerIds.forEach((id) => {
       if (elementProperties[id]) {
         copiedElementProperties[id] = { ...elementProperties[id] };
@@ -179,7 +210,7 @@ export function EditorInner() {
     if (!clipboard || clipboard.layers.length === 0) return;
 
     const newLayers: LayerType[] = [];
-    const newElementProperties: Record<string, TextElementProperties> = {};
+    const newElementProperties: Record<string, ElementProperties> = {};
     const newSelectedLayerIds: string[] = [];
 
     // Create new IDs and offset positions for each pasted layer
@@ -403,7 +434,7 @@ export function EditorInner() {
       // Deselect all, add layer, set props, enter edit mode
       selectLayer(tempId, false);
       setLayers((prev) =>
-        prev.map((l) => ({ ...l, active: false })).concat(newLayer),
+        [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
       );
       setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
       setEditingLayerId(tempId);
@@ -440,6 +471,59 @@ export function EditorInner() {
     [elementProperties, setIsEditingText, setSelectedLayerId],
   );
 
+  // ── Create shape element ────────────────────────────────────────────────────
+  const handleCreateShape = useCallback(
+    (
+      kind: ShapeKind,
+      x: number,
+      y: number,
+      width: number,
+      height: number,
+    ) => {
+      const tempId = `shape-${Date.now()}`;
+
+      const kindName = kind.charAt(0).toUpperCase() + kind.slice(1);
+
+      const newLayer: LayerType = {
+        id: tempId,
+        name: kindName,
+        type: "shape",
+        locked: false,
+        visible: true,
+        active: true,
+      };
+
+      const newProps: ShapeElementProperties = {
+        type: "shape",
+        kind,
+        x,
+        y,
+        width,
+        height,
+        fill: "#8b5cf6",
+        stroke: "rgba(255,255,255,0.2)",
+        strokeWidth: 1,
+        opacity: 1,
+      };
+
+      saveToHistory("CREATE");
+      selectLayer(tempId, false);
+      setLayers((prev) =>
+        [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
+      );
+      setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
+
+      // Switch back to move tool after placing shape (matches Figma UX)
+      setActiveTool("move");
+
+      // Persist to backend (fire-and-forget)
+      createLayer(TEMP_PROJECT_ID, { name: newLayer.name }).catch(
+        console.error,
+      );
+    },
+    [saveToHistory, selectLayer, setLayers, setActiveTool],
+  );
+
   // ── Move element ──────────────────────────────────────────────────────────
   const handleMoveElement = useCallback((id: string, x: number, y: number) => {
     setElementProperties((prev) => ({
@@ -448,26 +532,155 @@ export function EditorInner() {
     }));
   }, []);
 
-  // ── Update partial element property (used by DesignTab) ──────────────────
-  const handleUpdateElementProperty = useCallback(
-    (id: string, updates: Partial<TextElementProperties>) => {
-      setElementProperties((prev) => ({
-        ...prev,
-        [id]: prev[id] ? { ...prev[id], ...updates } : prev[id],
-      }));
+  // ── Resize element ────────────────────────────────────────────────────────
+  const handleResizeElement = useCallback(
+    (id: string, x: number, y: number, width: number, height: number) => {
+      setElementProperties((prev) => {
+        const props = prev[id];
+        if (!props) return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...props,
+            x,
+            y,
+            width,
+            height,
+          },
+        };
+      });
     },
     [],
   );
 
+  // ── Resize start (saves state to history) ──────────────────────────────────
+  const handleResizeStart = useCallback(() => {
+    saveToHistory("RESIZE");
+  }, [saveToHistory]);
+
+  // ── Rotate element ────────────────────────────────────────────────────────
+  const handleRotateElement = useCallback(
+    (id: string, rotation: number) => {
+      setElementProperties((prev) => {
+        const props = prev[id];
+        if (!props) return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...props,
+            rotation,
+          },
+        };
+      });
+    },
+    [],
+  );
+
+  // ── Rotate start (saves state to history) ──────────────────────────────────
+  const handleRotateStart = useCallback(() => {
+    saveToHistory("ROTATE");
+  }, [saveToHistory]);
   // ── Tool change handler (commits text if editing, then switches) ──────────
   const handleToolChange = useCallback(
     (tool: EditorTool) => {
       if (isEditingText) {
         handleCommitText();
       }
+      if (tool === "image") {
+        // Trigger the hidden file input instead of switching tool
+        imageInputRef.current?.click();
+        return;
+      }
       setActiveTool(tool);
     },
     [isEditingText, handleCommitText, setActiveTool],
+  );
+
+  // ── Image file selected from the file picker ──────────────────────────────
+  const handleImageFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+
+        // Read the natural dimensions so we can fit the image on canvas
+        const img = new window.Image();
+        img.onload = () => {
+          const maxW = frameSize.width * 0.6;
+          const maxH = frameSize.height * 0.6;
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+
+          // Scale down while preserving aspect ratio
+          if (w > maxW || h > maxH) {
+            const ratio = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+
+          // Center on canvas
+          const x = Math.round((frameSize.width - w) / 2);
+          const y = Math.round((frameSize.height - h) / 2);
+
+          const tempId = `image-${Date.now()}`;
+          const newLayer: LayerType = {
+            id: tempId,
+            name: file.name.replace(/\.[^.]+$/, "") || "Image",
+            type: "image",
+            locked: false,
+            visible: true,
+            active: true,
+          };
+
+          const newProps: ImageElementProperties = {
+            type: "image",
+            x,
+            y,
+            width: w,
+            height: h,
+            url: dataUrl,
+            opacity: 1,
+          };
+
+          saveToHistory("CREATE");
+          selectLayer(tempId, false);
+          setLayers((prev) =>
+            [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
+          );
+          setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
+          setActiveTool("move");
+
+          // Persist to backend (fire-and-forget)
+          createLayer(TEMP_PROJECT_ID, { name: newLayer.name }).catch(
+            console.error,
+          );
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+
+      // Reset the input so the same file can be selected again
+      e.target.value = "";
+    },
+    [frameSize, saveToHistory, selectLayer, setLayers, setActiveTool],
+  );
+
+  // ── Update properties for the selected element ────────────────────────────
+  const handleUpdateProperties = useCallback(
+    (id: string, updates: Partial<ElementProperties>) => {
+      setElementProperties((prev) => {
+        const existing = prev[id];
+        if (!existing) return prev;
+        return {
+          ...prev,
+          [id]: { ...existing, ...updates } as ElementProperties,
+        };
+      });
+    },
+    [],
   );
 
   // ── Select layer (Figma: single-click selects the layer) ────────────────
@@ -562,10 +775,8 @@ export function EditorInner() {
         setFrameSize={setFrameSize}
         onToolSelect={handleToolChange}
         onExport={handleExport}
-        elementProperties={elementProperties}
-        selectedLayerIds={selectedLayerIds}
-        onMoveElement={handleMoveElement}
-        onUpdateElementProperty={handleUpdateElementProperty}
+        onNewProject={handleNewProject}
+        isProjectActive={isProjectActive}
       >
         <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
           <div className="bg-zinc-900 border border-white/10 p-8 w-full max-w-md rounded-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col gap-6 z-30">
@@ -673,16 +884,18 @@ export function EditorInner() {
   }
 
   return (
-      <EditorLayout
-        frameSize={frameSize}
-        setFrameSize={setFrameSize}
-        onToolSelect={handleToolChange}
-        onExport={handleExport}
-        elementProperties={elementProperties}
-        selectedLayerIds={selectedLayerIds}
-        onMoveElement={handleMoveElement}
-        onUpdateElementProperty={handleUpdateElementProperty}
-      >
+    <EditorLayout
+      frameSize={frameSize}
+      setFrameSize={setFrameSize}
+      onToolSelect={handleToolChange}
+      onExport={handleExport}
+      onNewProject={handleNewProject}
+      isProjectActive={isProjectActive}
+      selectedLayerIds={selectedLayerIds}
+      elementProperties={elementProperties}
+      onUpdateProperties={handleUpdateProperties}
+      onMoveElement={handleMoveElement}
+    >
       {/* Canvas Area wrapper for zoom/pan context */}
       <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
         {/* The actual SVG Canvas/Artboard */}
@@ -696,11 +909,16 @@ export function EditorInner() {
             isEditingText={isEditingText}
             elementProperties={elementProperties}
             onCreateText={handleCreateText}
+            onCreateShape={handleCreateShape}
             onSelectLayer={handleSelectLayer}
             onShiftSelectLayer={handleShiftSelectLayer}
             onClearSelection={handleClearSelection}
             onRubberBandSelect={handleRubberBandSelect}
             onMoveElement={handleMoveElement}
+            onResizeStart={handleResizeStart}
+            onResizeElement={handleResizeElement}
+            onRotateStart={handleRotateStart}
+            onRotateElement={handleRotateElement}
             onEditingChange={setIsEditingText}
             onEditText={handleEditText}
             editingContent={editingContent}
@@ -746,6 +964,15 @@ export function EditorInner() {
           </button>
         </div>
       </div>
+
+      {/* Hidden file input for image uploads */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={handleImageFileChange}
+      />
     </EditorLayout>
   );
 }

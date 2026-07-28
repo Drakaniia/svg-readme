@@ -20,6 +20,39 @@ export interface TextElementProperties {
   textAlign: "left" | "center" | "right";
 }
 
+export type ShapeKind = "rect" | "circle" | "triangle" | "star" | "hexagon" | "line";
+
+export interface ShapeElementProperties {
+  type: "shape";
+  kind: ShapeKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  opacity: number;
+  /** Rotation in degrees around the shape's own center (0–360). */
+  rotation?: number;
+}
+
+export interface ImageElementProperties {
+  type: "image";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Base64 data URL or external URL */
+  url: string;
+  opacity: number;
+  /** Rotation in degrees around the image's own center (0–360). */
+  rotation?: number;
+}
+
+/** Union of all element property types */
+export type ElementProperties = TextElementProperties | ShapeElementProperties | ImageElementProperties;
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const TEXT_ANCHOR_MAP: Record<string, "start" | "middle" | "end"> = {
@@ -55,6 +88,59 @@ function getTextBoundingBox(props: TextElementProperties) {
     width: textWidth + 8,
     height: textHeight + 4,
   };
+}
+
+/** Bounding box for a shape element (same coords as the shape itself). */
+function getShapeBoundingBox(props: ShapeElementProperties) {
+  return { x: props.x, y: props.y, width: props.width, height: props.height };
+}
+
+/** Bounding box for an image element (same coords as the image itself). */
+function getImageBoundingBox(props: ImageElementProperties) {
+  return { x: props.x, y: props.y, width: props.width, height: props.height };
+}
+
+/** Returns bounding box for any element type — used for rubber-band selection */
+export function getElementBoundingBox(props: ElementProperties) {
+  if (props.type === "text") return getTextBoundingBox(props);
+  if (props.type === "image") return getImageBoundingBox(props);
+  return getShapeBoundingBox(props);
+}
+
+// ── Triangle path helper ────────────────────────────────────────────────────
+function trianglePath(x: number, y: number, w: number, h: number): string {
+  return `M ${x + w / 2} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
+}
+
+// ── Star path helper (5-pointed star) ──────────────────────────────────────
+function starPath(x: number, y: number, w: number, h: number): string {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const outerR = Math.min(w, h) / 2;
+  const innerR = outerR * 0.4;
+  const points: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
+    const r = i % 2 === 0 ? outerR : innerR;
+    points.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`);
+  }
+  return `M ${points.join(" L ")} Z`;
+}
+
+// ── Hexagon path helper ─────────────────────────────────────────────────────
+function hexagonPath(x: number, y: number, w: number, h: number): string {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const rx = w / 2;
+  const ry = h / 2;
+  const points: string[] = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    points.push(
+      `${cx + rx * Math.cos(angle)},${cy + ry * Math.sin(angle)}`,
+    );
+  }
+  return `M ${points.join(" L ")} Z`;
 }
 
 // ─── Element Renderers ───────────────────────────────────────────────────────
@@ -144,11 +230,217 @@ function TextElement({
   );
 }
 
+function ShapeElement({
+  properties,
+  isSelected,
+  isRubberBandHighlighted,
+}: {
+  properties: ShapeElementProperties;
+  isSelected: boolean;
+  isRubberBandHighlighted?: boolean;
+}) {
+  const { kind, x, y, width, height, fill, stroke, strokeWidth, opacity, rotation } =
+    properties;
+  const showHighlight = isSelected || isRubberBandHighlighted;
+
+  const selectionStroke = isRubberBandHighlighted && !isSelected ? "#60a5fa" : "#3b82f6";
+  const selectionDash = isRubberBandHighlighted && !isSelected ? "3 2" : undefined;
+  const selectionFill = isRubberBandHighlighted && !isSelected ? "rgba(59,130,246,0.08)" : "none";
+
+  // Center of the bounding box — used as the rotation origin
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const rotateTransform =
+    rotation ? `rotate(${rotation}, ${cx}, ${cy})` : undefined;
+
+  // Render the actual shape
+  let shapeEl: React.ReactNode;
+  let hitEl: React.ReactNode;
+
+  if (kind === "rect") {
+    shapeEl = (
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+        rx={4}
+      />
+    );
+    hitEl = <rect x={x} y={y} width={width} height={height} fill="transparent" />;
+  } else if (kind === "circle") {
+    const rx = width / 2;
+    const ry = height / 2;
+    shapeEl = (
+      <ellipse
+        cx={x + rx}
+        cy={y + ry}
+        rx={rx}
+        ry={ry}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+    hitEl = <rect x={x} y={y} width={width} height={height} fill="transparent" />;
+  } else if (kind === "triangle") {
+    shapeEl = (
+      <path
+        d={trianglePath(x, y, width, height)}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+    hitEl = <rect x={x} y={y} width={width} height={height} fill="transparent" />;
+  } else if (kind === "star") {
+    shapeEl = (
+      <path
+        d={starPath(x, y, width, height)}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+    hitEl = <rect x={x} y={y} width={width} height={height} fill="transparent" />;
+  } else if (kind === "hexagon") {
+    shapeEl = (
+      <path
+        d={hexagonPath(x, y, width, height)}
+        fill={fill}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+    hitEl = <rect x={x} y={y} width={width} height={height} fill="transparent" />;
+  } else if (kind === "line") {
+    const midY = y + height / 2;
+    shapeEl = (
+      <line
+        x1={x}
+        y1={midY}
+        x2={x + width}
+        y2={midY}
+        stroke={stroke || fill}
+        strokeWidth={Math.max(strokeWidth, 2)}
+        opacity={opacity}
+      />
+    );
+    hitEl = (
+      <rect
+        x={x}
+        y={midY - 6}
+        width={width}
+        height={12}
+        fill="transparent"
+      />
+    );
+  } else {
+    shapeEl = null;
+    hitEl = null;
+  }
+
+  return (
+    <g
+      className="canvas-element"
+      data-layer-type="shape"
+      transform={rotateTransform}
+    >
+      {shapeEl}
+      {hitEl}
+      {showHighlight && (
+        <rect
+          x={x - 2}
+          y={y - 2}
+          width={width + 4}
+          height={height + 4}
+          fill={selectionFill}
+          stroke={selectionStroke}
+          strokeWidth={1}
+          strokeDasharray={selectionDash}
+          rx={2}
+          className="pointer-events-none"
+        />
+      )}
+    </g>
+  );
+}
+
+function ImageElement({
+  properties,
+  isSelected,
+  isRubberBandHighlighted,
+}: {
+  properties: ImageElementProperties;
+  isSelected: boolean;
+  isRubberBandHighlighted?: boolean;
+}) {
+  const { x, y, width, height, url, opacity, rotation } = properties;
+  const showHighlight = isSelected || isRubberBandHighlighted;
+
+  const selectionStroke =
+    isRubberBandHighlighted && !isSelected ? "#60a5fa" : "#3b82f6";
+  const selectionDash =
+    isRubberBandHighlighted && !isSelected ? "3 2" : undefined;
+  const selectionFill =
+    isRubberBandHighlighted && !isSelected
+      ? "rgba(59,130,246,0.08)"
+      : "none";
+
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const rotateTransform = rotation
+    ? `rotate(${rotation}, ${cx}, ${cy})`
+    : undefined;
+
+  return (
+    <g
+      className="canvas-element"
+      data-layer-type="image"
+      transform={rotateTransform}
+    >
+      <image
+        href={url}
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        opacity={opacity}
+        preserveAspectRatio="none"
+      />
+      {/* Invisible hit area for easier selection */}
+      <rect x={x} y={y} width={width} height={height} fill="transparent" />
+      {showHighlight && (
+        <rect
+          x={x - 2}
+          y={y - 2}
+          width={width + 4}
+          height={height + 4}
+          fill={selectionFill}
+          stroke={selectionStroke}
+          strokeWidth={1}
+          strokeDasharray={selectionDash}
+          rx={2}
+          className="pointer-events-none"
+        />
+      )}
+    </g>
+  );
+}
+
 // ─── Main Renderer ───────────────────────────────────────────────────────────
 
 interface ElementsRendererProps {
   layers: LayerType[];
-  elementProperties: Record<string, TextElementProperties>;
+  elementProperties: Record<string, ElementProperties>;
   /** Single selected layer ID (legacy — prefer selectedLayerIds) */
   selectedLayerId?: string | null;
   /** Multi-selection: all selected layer IDs.
@@ -209,12 +501,26 @@ export default function ElementsRenderer({
             onDoubleClick={(e) => onElementDoubleClick?.(e, layer.id)}
             style={{ pointerEvents: isEditing ? "none" : undefined }}
           >
-            <TextElement
-              properties={props}
-              isSelected={isSelected}
-              isRubberBandHighlighted={isRubberBandHighlighted}
-              isEditing={isEditing}
-            />
+            {props.type === "text" ? (
+              <TextElement
+                properties={props}
+                isSelected={isSelected}
+                isRubberBandHighlighted={isRubberBandHighlighted}
+                isEditing={isEditing}
+              />
+            ) : props.type === "image" ? (
+              <ImageElement
+                properties={props}
+                isSelected={isSelected}
+                isRubberBandHighlighted={isRubberBandHighlighted}
+              />
+            ) : (
+              <ShapeElement
+                properties={props}
+                isSelected={isSelected}
+                isRubberBandHighlighted={isRubberBandHighlighted}
+              />
+            )}
           </g>
         );
       })}
@@ -222,4 +528,4 @@ export default function ElementsRenderer({
   );
 }
 
-export { getTextBoundingBox };
+export { getTextBoundingBox, getShapeBoundingBox, getImageBoundingBox };
