@@ -448,6 +448,17 @@ export function EditorInner() {
     }));
   }, []);
 
+  // ── Update partial element property (used by DesignTab) ──────────────────
+  const handleUpdateElementProperty = useCallback(
+    (id: string, updates: Partial<TextElementProperties>) => {
+      setElementProperties((prev) => ({
+        ...prev,
+        [id]: prev[id] ? { ...prev[id], ...updates } : prev[id],
+      }));
+    },
+    [],
+  );
+
   // ── Tool change handler (commits text if editing, then switches) ──────────
   const handleToolChange = useCallback(
     (tool: EditorTool) => {
@@ -551,6 +562,10 @@ export function EditorInner() {
         setFrameSize={setFrameSize}
         onToolSelect={handleToolChange}
         onExport={handleExport}
+        elementProperties={elementProperties}
+        selectedLayerIds={selectedLayerIds}
+        onMoveElement={handleMoveElement}
+        onUpdateElementProperty={handleUpdateElementProperty}
       >
         <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
           <div className="bg-zinc-900 border border-white/10 p-8 w-full max-w-md rounded-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col gap-6 z-30">
@@ -658,12 +673,16 @@ export function EditorInner() {
   }
 
   return (
-    <EditorLayout
-      frameSize={frameSize}
-      setFrameSize={setFrameSize}
-      onToolSelect={handleToolChange}
-      onExport={handleExport}
-    >
+      <EditorLayout
+        frameSize={frameSize}
+        setFrameSize={setFrameSize}
+        onToolSelect={handleToolChange}
+        onExport={handleExport}
+        elementProperties={elementProperties}
+        selectedLayerIds={selectedLayerIds}
+        onMoveElement={handleMoveElement}
+        onUpdateElementProperty={handleUpdateElementProperty}
+      >
       {/* Canvas Area wrapper for zoom/pan context */}
       <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
         {/* The actual SVG Canvas/Artboard */}
