@@ -150,7 +150,7 @@ export default function Canvas({
         onCommitText?.();
       }
 
-      if (selectedId && selectedProps && selectedProps.type === "shape") {
+      if (selectedId && selectedProps && (selectedProps.type === "shape" || selectedProps.type === "image")) {
         onResizeStart?.();
         const coords = getSVGCoords(e);
         setResizeState({
@@ -183,7 +183,7 @@ export default function Canvas({
         onCommitText?.();
       }
 
-      if (selectedId && selectedProps && selectedProps.type === "shape") {
+      if (selectedId && selectedProps && (selectedProps.type === "shape" || selectedProps.type === "image")) {
         onRotateStart?.();
         const coords = getSVGCoords(e);
         const centerX = selectedProps.x + selectedProps.width / 2;
@@ -626,7 +626,7 @@ export default function Canvas({
     activeTool === "move" &&
     selectedId &&
     selectedProps &&
-    selectedProps.type === "shape";
+    (selectedProps.type === "shape" || selectedProps.type === "image");
 
   const renderHandle = (
     hx: number,
@@ -663,7 +663,7 @@ export default function Canvas({
   };
 
   const rotateTransform =
-    showResizeOverlay && selectedProps && selectedProps.type === "shape" && selectedProps.rotation
+    showResizeOverlay && selectedProps && (selectedProps.type === "shape" || selectedProps.type === "image") && selectedProps.rotation
       ? `rotate(${selectedProps.rotation}, ${selectedProps.x + selectedProps.width / 2}, ${selectedProps.y + selectedProps.height / 2})`
       : undefined;
 
