@@ -12,7 +12,11 @@ export interface TextElementProperties {
   fontFamily: string;
   fontSize: number;
   fontWeight: number;
+  /** Text foreground color (hex). Maps to SVG <text fill="...">. */
   color: string;
+  /** Text box background fill (hex). When set, renders a filled rect behind the text.
+   *  Undefined or empty string means no background. Open-pencil equivalent: fills on a rect. */
+  backgroundColor?: string;
   textAlign: "left" | "center" | "right";
 }
 
@@ -76,6 +80,18 @@ function TextElement({
 
   return (
     <g className="canvas-element" data-layer-type="text">
+      {/* Background fill rect — rendered behind text, visible even while editing */}
+      {properties.backgroundColor && (
+        <rect
+          x={bb.x}
+          y={bb.y}
+          width={bb.width}
+          height={bb.height}
+          fill={properties.backgroundColor}
+          rx={3}
+          className="pointer-events-none"
+        />
+      )}
       {showHighlight && (
         <rect
           x={bb.x}

@@ -16,6 +16,7 @@ export const DEFAULT_TEXT_PROPS: Omit<
   fontSize: 16,
   fontWeight: 400,
   color: "#ffffff",
+  backgroundColor: undefined,
   textAlign: "left",
 };
 
