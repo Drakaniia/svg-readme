@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   AlignLeft,
   AlignCenter,
@@ -10,9 +10,10 @@ import {
   Code,
   Image,
   Check,
-  ImagePlus,
 } from "lucide-react";
-import type { ElementProperties } from "../editor-canvas/ElementsRenderer";
+import type { ElementProperties, TextElementProperties } from "../editor-canvas/ElementsRenderer";
+import { getTextBoundingBox } from "../editor-canvas/ElementsRenderer";
+import ColorPickerPopover from "./ColorPickerPopover";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -20,10 +21,8 @@ interface EditorRightBarProps {
   onExport?: () => void;
   selectedLayerIds?: string[];
   elementProperties?: Record<string, ElementProperties>;
-  onUpdateProperties?: (
-    id: string,
-    updates: Partial<ElementProperties>,
-  ) => void;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
 }
 
 export default function EditorRightBar({
@@ -31,6 +30,7 @@ export default function EditorRightBar({
   selectedLayerIds,
   elementProperties,
   onUpdateProperties,
+  onMoveElement,
 }: EditorRightBarProps) {
   const [activeTab, setActiveTab] = useState<"design" | "animate" | "export">(
     "design",
@@ -99,7 +99,10 @@ export default function EditorRightBar({
             selectedId={selectedId}
             selectedProps={selectedProps}
             onUpdateProperties={onUpdateProperties}
+            onMoveElement={onMoveElement}
             multiSelectCount={selectedLayerIds?.length ?? 0}
+            allElementProperties={elementProperties}
+            allSelectedLayerIds={selectedLayerIds}
           />
         )}
         {activeTab === "animate" && <AnimateTab />}
@@ -148,18 +151,21 @@ function PropInput({
 interface DesignTabProps {
   selectedId: string | null;
   selectedProps: ElementProperties | null;
-  onUpdateProperties?: (
-    id: string,
-    updates: Partial<ElementProperties>,
-  ) => void;
+  onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
   multiSelectCount: number;
+  allElementProperties?: Record<string, ElementProperties>;
+  allSelectedLayerIds?: string[];
 }
 
 function DesignTab({
   selectedId,
   selectedProps,
   onUpdateProperties,
+  onMoveElement,
   multiSelectCount,
+  allElementProperties,
+  allSelectedLayerIds,
 }: DesignTabProps) {
   if (multiSelectCount > 1) {
     return (
@@ -277,6 +283,79 @@ function DesignTab({
       </div>
     ) : null;
 
+  // ── Alignment handler (multi-select) ─────────────────────────────────────
+  const hasMultipleSelection = (allSelectedLayerIds?.length ?? 0) >= 2;
+  const hasThreeOrMore = (allSelectedLayerIds?.length ?? 0) >= 3;
+
+  const handleAlign = useCallback(
+    (alignType: string) => {
+      const ids = allSelectedLayerIds?.filter((id) => allElementProperties?.[id]) ?? [];
+      if (ids.length < 2 || !onMoveElement) return;
+
+      const bbs = ids.map((id) => ({
+        id,
+        bb: getTextBoundingBox(allElementProperties![id] as TextElementProperties),
+        props: allElementProperties![id],
+      }));
+
+      switch (alignType) {
+        case "left": {
+          const minX = Math.min(...bbs.map((b) => b.bb.x));
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (minX - b.bb.x), b.props.y));
+          break;
+        }
+        case "centerH": {
+          const avgCenter = bbs.reduce((sum, b) => sum + b.bb.x + b.bb.width / 2, 0) / bbs.length;
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (avgCenter - b.bb.width / 2 - b.bb.x), b.props.y));
+          break;
+        }
+        case "right": {
+          const maxRight = Math.max(...bbs.map((b) => b.bb.x + b.bb.width));
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x + (maxRight - b.bb.width - b.bb.x), b.props.y));
+          break;
+        }
+        case "top": {
+          const minY = Math.min(...bbs.map((b) => b.bb.y));
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (minY - b.bb.y)));
+          break;
+        }
+        case "centerV": {
+          const avgCenter = bbs.reduce((sum, b) => sum + b.bb.y + b.bb.height / 2, 0) / bbs.length;
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (avgCenter - b.bb.height / 2 - b.bb.y)));
+          break;
+        }
+        case "bottom": {
+          const maxBottom = Math.max(...bbs.map((b) => b.bb.y + b.bb.height));
+          bbs.forEach((b) => onMoveElement(b.id, b.props.x, b.props.y + (maxBottom - b.bb.height - b.bb.y)));
+          break;
+        }
+        case "distributeH": {
+          const sorted = [...bbs].sort((a, b) => a.bb.x - b.bb.x);
+          const first = sorted[0];
+          const last = sorted[sorted.length - 1];
+          const totalSpan = last.bb.x + last.bb.width - first.bb.x;
+          const objectsWidth = sorted.reduce((s, b) => s + b.bb.width, 0);
+          const gap = objectsWidth > 0 ? (totalSpan - objectsWidth) / (sorted.length - 1) : totalSpan / (sorted.length - 1);
+          let curX = first.bb.x;
+          sorted.forEach((b) => { onMoveElement(b.id, b.props.x + (curX - b.bb.x), b.props.y); curX += b.bb.width + gap; });
+          break;
+        }
+        case "distributeV": {
+          const sorted = [...bbs].sort((a, b) => a.bb.y - b.bb.y);
+          const first = sorted[0];
+          const last = sorted[sorted.length - 1];
+          const totalSpan = last.bb.y + last.bb.height - first.bb.y;
+          const objectsHeight = sorted.reduce((s, b) => s + b.bb.height, 0);
+          const gap = objectsHeight > 0 ? (totalSpan - objectsHeight) / (sorted.length - 1) : totalSpan / (sorted.length - 1);
+          let curY = first.bb.y;
+          sorted.forEach((b) => { onMoveElement(b.id, b.props.x, b.props.y + (curY - b.bb.y)); curY += b.bb.height + gap; });
+          break;
+        }
+      }
+    },
+    [allSelectedLayerIds, allElementProperties, onMoveElement],
+  );
+
   // ── Type-specific sections ────────────────────────────────────────────
   if (selectedProps.type === "text") {
     return (
@@ -378,24 +457,69 @@ function DesignTab({
           </div>
         </div>
 
-        {/* Fill (text color) */}
+        {/* Text Color (ColorPickerPopover) */}
         <div className="p-5 border-b border-white/5">
           <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
-            Color
+            Text Color
           </div>
-          <div className="flex items-center gap-3">
-            <input
-              type="color"
-              value={selectedProps.color}
-              onChange={(e) => update({ color: e.target.value })}
-              className="w-8 h-8 rounded border border-white/10 cursor-pointer bg-transparent"
+          <ColorPickerPopover
+            value={selectedProps.color}
+            onChange={(hex) => update({ color: hex })}
+          />
+        </div>
+
+        {/* Background Fill */}
+        <div className="p-5 border-b border-white/5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider font-semibold">
+              Background Fill
+            </div>
+            {selectedProps.backgroundColor && (
+              <button
+                onClick={() => update({ backgroundColor: undefined })}
+                className="text-[10px] text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+          {selectedProps.backgroundColor ? (
+            <ColorPickerPopover
+              value={selectedProps.backgroundColor}
+              onChange={(hex) => update({ backgroundColor: hex })}
             />
-            <input
-              type="text"
-              value={selectedProps.color}
-              onChange={(e) => update({ color: e.target.value })}
-              className="flex-1 bg-zinc-900 border border-white/5 rounded-md px-3 py-2 text-sm text-zinc-300 outline-none focus:border-blue-500/50 transition-all font-mono"
-            />
+          ) : (
+            <button
+              onClick={() => update({ backgroundColor: "#333333" })}
+              className="w-full py-2.5 text-xs text-zinc-500 hover:text-zinc-300 border border-dashed border-white/10 hover:border-white/20 rounded-md transition-colors font-medium"
+            >
+              + Add background fill
+            </button>
+          )}
+        </div>
+
+        {/* Align Objects */}
+        <div className="p-5 border-b border-white/5">
+          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
+            Align Objects
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <AlignBtn onClick={() => handleAlign("left")} disabled={!hasMultipleSelection} label="Left"><AlignLeftIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("centerH")} disabled={!hasMultipleSelection} label="Center"><AlignCenterHIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("right")} disabled={!hasMultipleSelection} label="Right"><AlignRightIcon /></AlignBtn>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              <AlignBtn onClick={() => handleAlign("top")} disabled={!hasMultipleSelection} label="Top"><AlignTopIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("centerV")} disabled={!hasMultipleSelection} label="Middle"><AlignMiddleIcon /></AlignBtn>
+              <AlignBtn onClick={() => handleAlign("bottom")} disabled={!hasMultipleSelection} label="Bottom"><AlignBottomIcon /></AlignBtn>
+            </div>
+            <div className="mt-2 pt-2 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <AlignBtn onClick={() => handleAlign("distributeH")} disabled={!hasThreeOrMore} label="Distribute H"><DistributeHIcon /></AlignBtn>
+                <AlignBtn onClick={() => handleAlign("distributeV")} disabled={!hasThreeOrMore} label="Distribute V"><DistributeVIcon /></AlignBtn>
+              </div>
+            </div>
           </div>
         </div>
       </>
@@ -463,34 +587,129 @@ function DesignTab({
     );
   }
 
-  if (selectedProps.type === "image") {
-    return (
-      <>
-        {layoutSection}
-        {transformSection}
-
-        {/* Image Info */}
-        <div className="p-5 border-b border-white/5">
-          <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold">
-            Image
-          </div>
-          {/* Thumbnail preview */}
-          <div className="relative w-full aspect-video bg-zinc-900 border border-white/5 rounded-lg overflow-hidden mb-3">
-            <img
-              src={selectedProps.url}
-              alt="Selected"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <p className="text-[10px] text-zinc-600 leading-relaxed">
-            Image is embedded as a base64 data URL in the exported SVG.
-          </p>
-        </div>
-      </>
-    );
-  }
-
   return null;
+}
+
+// ─── Alignment UI Components ─────────────────────────────────────────────────
+
+function AlignBtn({
+  onClick,
+  disabled,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      className={`flex flex-col items-center gap-1 p-2 rounded-md text-[9px] font-medium transition-all ${
+        disabled
+          ? "text-zinc-600 cursor-not-allowed opacity-40"
+          : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 border border-transparent hover:border-white/10"
+      }`}
+    >
+      {children}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+// Simple SVG icons for alignment actions (16x16 viewBox)
+
+function AlignLeftIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="2" y1="2" x2="2" y2="14" />
+      <rect x="4" y="3" width="8" height="2" rx="0.5" />
+      <rect x="4" y="7" width="6" height="2" rx="0.5" />
+      <rect x="4" y="11" width="9" height="2" rx="0.5" />
+    </svg>
+  );
+}
+
+function AlignCenterHIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="8" y1="2" x2="8" y2="14" />
+      <rect x="3" y="3" width="10" height="2" rx="0.5" />
+      <rect x="5" y="7" width="6" height="2" rx="0.5" />
+      <rect x="2" y="11" width="12" height="2" rx="0.5" />
+    </svg>
+  );
+}
+
+function AlignRightIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="14" y1="2" x2="14" y2="14" />
+      <rect x="4" y="3" width="8" height="2" rx="0.5" />
+      <rect x="6" y="7" width="6" height="2" rx="0.5" />
+      <rect x="3" y="11" width="9" height="2" rx="0.5" />
+    </svg>
+  );
+}
+
+function AlignTopIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="2" y1="2" x2="14" y2="2" />
+      <rect x="3" y="4" width="2" height="8" rx="0.5" />
+      <rect x="7" y="4" width="2" height="6" rx="0.5" />
+      <rect x="11" y="4" width="2" height="9" rx="0.5" />
+    </svg>
+  );
+}
+
+function AlignMiddleIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="2" y1="8" x2="14" y2="8" />
+      <rect x="3" y="3" width="2" height="10" rx="0.5" />
+      <rect x="7" y="5" width="2" height="6" rx="0.5" />
+      <rect x="11" y="2" width="2" height="12" rx="0.5" />
+    </svg>
+  );
+}
+
+function AlignBottomIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <line x1="2" y1="14" x2="14" y2="14" />
+      <rect x="3" y="4" width="2" height="8" rx="0.5" />
+      <rect x="7" y="6" width="2" height="6" rx="0.5" />
+      <rect x="11" y="3" width="2" height="9" rx="0.5" />
+    </svg>
+  );
+}
+
+function DistributeHIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="2" y="3" width="2" height="10" rx="0.5" />
+      <rect x="7" y="3" width="2" height="10" rx="0.5" />
+      <rect x="12" y="3" width="2" height="10" rx="0.5" />
+      <line x1="4" y1="8" x2="7" y2="8" strokeDasharray="1.5 1.5" />
+      <line x1="9" y1="8" x2="12" y2="8" strokeDasharray="1.5 1.5" />
+    </svg>
+  );
+}
+
+function DistributeVIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+      <rect x="3" y="2" width="10" height="2" rx="0.5" />
+      <rect x="3" y="7" width="10" height="2" rx="0.5" />
+      <rect x="3" y="12" width="10" height="2" rx="0.5" />
+      <line x1="8" y1="4" x2="8" y2="7" strokeDasharray="1.5 1.5" />
+      <line x1="8" y1="9" x2="8" y2="12" strokeDasharray="1.5 1.5" />
+    </svg>
+  );
 }
 
 // ─── Animate Tab ──────────────────────────────────────────────────────────────

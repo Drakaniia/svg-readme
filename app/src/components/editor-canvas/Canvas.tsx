@@ -493,7 +493,8 @@ export default function Canvas({
       const dy = textDragState.currentY - textDragState.startY;
 
       if (Math.abs(dx) < 3 && Math.abs(dy) < 3) {
-        // Single click — auto-width text
+        // Single click — auto-width text so the overlay and bounding box
+        // resize with the content as the user types (matching Figma behavior)
         onCreateText(textDragState.startX, textDragState.startY, "auto", 30);
       } else {
         // Drag — fixed-width text with minimum size
@@ -616,6 +617,7 @@ export default function Canvas({
         fontSize={editingTextProps.fontSize}
         fontWeight={editingTextProps.fontWeight}
         color={editingTextProps.color}
+        backgroundColor={editingTextProps.backgroundColor}
         textAlign={editingTextProps.textAlign}
         onChange={onEditingContentChange ?? (() => {})}
         onCommit={onCommitText ?? (() => {})}

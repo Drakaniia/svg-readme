@@ -189,7 +189,7 @@ export function EditorInner() {
     const copiedLayers = layers.filter((layer) =>
       selectedLayerIds.includes(layer.id),
     );
-    const copiedElementProperties: Record<string, TextElementProperties> = {};
+    const copiedElementProperties: Record<string, ElementProperties> = {};
     selectedLayerIds.forEach((id) => {
       if (elementProperties[id]) {
         copiedElementProperties[id] = { ...elementProperties[id] };
@@ -210,7 +210,7 @@ export function EditorInner() {
     if (!clipboard || clipboard.layers.length === 0) return;
 
     const newLayers: LayerType[] = [];
-    const newElementProperties: Record<string, TextElementProperties> = {};
+    const newElementProperties: Record<string, ElementProperties> = {};
     const newSelectedLayerIds: string[] = [];
 
     // Create new IDs and offset positions for each pasted layer
@@ -434,7 +434,7 @@ export function EditorInner() {
       // Deselect all, add layer, set props, enter edit mode
       selectLayer(tempId, false);
       setLayers((prev) =>
-        prev.map((l) => ({ ...l, active: false })).concat(newLayer),
+        [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
       );
       setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
       setEditingLayerId(tempId);
@@ -509,7 +509,7 @@ export function EditorInner() {
       saveToHistory("CREATE");
       selectLayer(tempId, false);
       setLayers((prev) =>
-        prev.map((l) => ({ ...l, active: false })).concat(newLayer),
+        [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
       );
       setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
 
@@ -580,7 +580,6 @@ export function EditorInner() {
   const handleRotateStart = useCallback(() => {
     saveToHistory("ROTATE");
   }, [saveToHistory]);
-
   // ── Tool change handler (commits text if editing, then switches) ──────────
   const handleToolChange = useCallback(
     (tool: EditorTool) => {
@@ -649,7 +648,7 @@ export function EditorInner() {
           saveToHistory("CREATE");
           selectLayer(tempId, false);
           setLayers((prev) =>
-            prev.map((l) => ({ ...l, active: false })).concat(newLayer),
+            [...prev.map((l) => ({ ...l, active: false })), newLayer] as typeof prev,
           );
           setElementProperties((prev) => ({ ...prev, [tempId]: newProps }));
           setActiveTool("move");
@@ -777,6 +776,7 @@ export function EditorInner() {
         onToolSelect={handleToolChange}
         onExport={handleExport}
         onNewProject={handleNewProject}
+        isProjectActive={isProjectActive}
       >
         <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">
           <div className="bg-zinc-900 border border-white/10 p-8 w-full max-w-md rounded-xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] flex flex-col gap-6 z-30">
@@ -894,6 +894,7 @@ export function EditorInner() {
       selectedLayerIds={selectedLayerIds}
       elementProperties={elementProperties}
       onUpdateProperties={handleUpdateProperties}
+      onMoveElement={handleMoveElement}
     >
       {/* Canvas Area wrapper for zoom/pan context */}
       <div className="relative w-full h-full flex items-center justify-center p-12 overflow-hidden">

@@ -149,6 +149,25 @@ export function buildSvgString(options: BuildSvgOptions): string {
       const size = props.fontSize;
       const weight = props.fontWeight;
 
+      // Background fill rect (rendered behind text)
+      if (props.backgroundColor) {
+        const charWidth = size * 0.6;
+        const textWidth =
+          props.width === "auto"
+            ? Math.max(props.content.length * charWidth, 20)
+            : props.width;
+        const textHeight = props.width === "auto" ? size * 1.4 : props.height;
+        let bbX = props.x - 4;
+        if (props.textAlign === "center") bbX = props.x - textWidth / 2 - 4;
+        else if (props.textAlign === "right") bbX = props.x - textWidth - 4;
+        const bbY = props.y - size * 0.85;
+        const bbW = textWidth + 8;
+        const bbH = textHeight + 4;
+        elementStrings.push(
+          `    <rect x="${bbX}" y="${bbY}" width="${bbW}" height="${bbH}" fill="${props.backgroundColor}" rx="3"/>`,
+        );
+      }
+
       elementStrings.push(
         `    <text x="${props.x}" y="${props.y}" font-family="${family}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}">${escXml(props.content)}</text>`,
       );

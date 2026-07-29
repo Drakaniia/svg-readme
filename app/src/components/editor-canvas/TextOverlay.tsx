@@ -17,6 +17,8 @@ interface TextOverlayProps {
   fontSize: number;
   fontWeight: number;
   color: string;
+  /** Background fill of the text box (hex). Shows as overlay background. */
+  backgroundColor?: string;
   textAlign: "left" | "center" | "right";
   /** Called with updated content on change */
   onChange: (content: string) => void;
@@ -38,6 +40,7 @@ export default function TextOverlay({
   fontSize,
   fontWeight,
   color,
+  backgroundColor,
   textAlign,
   onChange,
   onCommit,
@@ -49,12 +52,9 @@ export default function TextOverlay({
     width === "auto"
       ? Math.max(content.length * fontSize * 0.6 + 16, 60)
       : width;
+      
+  const adjustedY = y - fontSize - 4;
 
-  // Adjust Y so the text baseline aligns with SVG text
-  const adjustedY = y - fontSize * 0.85;
-
-  // Adjust X based on text alignment so the textarea overlay matches
-  // how the SVG <text> element renders with its textAnchor attribute.
   let adjustedX = x - 4;
   if (textAlign === "center") {
     adjustedX = x - overlayWidth / 2;
@@ -107,6 +107,13 @@ export default function TextOverlay({
         width: overlayWidth,
         minWidth: 60,
         minHeight: fontSize * 1.6,
+        // Use the text box background fill if set, otherwise the blue editing indicator
+        background: backgroundColor ?? "rgba(59, 130, 246, 0.06)",
+        border: backgroundColor
+          ? "1px solid rgba(255, 255, 255, 0.15)"
+          : "1px solid rgba(59, 130, 246, 0.4)",
+        borderRadius: "2px",
+        padding: "4px",
       }}
     >
       <textarea
@@ -115,10 +122,11 @@ export default function TextOverlay({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={handleBlur}
-        className="w-full resize-none outline-none overflow-hidden"
+        className="w-full resize-none overflow-hidden"
         style={{
           background: "transparent",
           border: "none",
+          outline: "none",
           fontFamily,
           fontSize,
           fontWeight,
@@ -129,11 +137,13 @@ export default function TextOverlay({
           margin: 0,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
+          overflowWrap: "break-word",
           caretColor: color,
         }}
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
+        rows={1}
       />
     </div>
   );

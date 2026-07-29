@@ -17,6 +17,7 @@ interface EditorLayoutProps {
   selectedLayerIds?: string[];
   elementProperties?: Record<string, ElementProperties>;
   onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onMoveElement?: (id: string, x: number, y: number) => void;
 }
 
 export default function EditorLayout({
@@ -30,6 +31,7 @@ export default function EditorLayout({
   selectedLayerIds,
   elementProperties,
   onUpdateProperties,
+  onMoveElement,
 }: EditorLayoutProps) {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
@@ -60,6 +62,7 @@ export default function EditorLayout({
           selectedLayerIds={selectedLayerIds}
           elementProperties={elementProperties}
           onUpdateProperties={onUpdateProperties}
+          onMoveElement={onMoveElement}
         />
       </div>
     </div>
