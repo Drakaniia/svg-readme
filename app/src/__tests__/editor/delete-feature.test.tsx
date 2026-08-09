@@ -58,6 +58,7 @@ describe("Delete Feature — Backspace and Delete keys (unit tests)", () => {
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left",
+        textAlignVertical: "top",
       },
       "layer-2": {
         type: "text",
@@ -71,6 +72,7 @@ describe("Delete Feature — Backspace and Delete keys (unit tests)", () => {
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left",
+        textAlignVertical: "top",
       },
     };
   });

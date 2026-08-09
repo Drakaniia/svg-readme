@@ -85,6 +85,7 @@ describe("Clipboard and Undo Features — Unit Tests", () => {
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left",
+        textAlignVertical: "top",
       },
       "layer-2": {
         type: "text",
@@ -98,6 +99,7 @@ describe("Clipboard and Undo Features — Unit Tests", () => {
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left",
+        textAlignVertical: "top",
       },
     };
 

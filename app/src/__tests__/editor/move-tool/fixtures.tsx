@@ -55,6 +55,7 @@ export function makeTextProps(
     fontWeight: 400,
     color: "#ffffff",
     textAlign: "left",
+    textAlignVertical: "top",
     ...overrides,
   };
 }

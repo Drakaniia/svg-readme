@@ -275,6 +275,7 @@ describe("ElementsRenderer — multi-select highlights (Figma reference)", () =>
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left" as const,
+        textAlignVertical: "top" as const,
       },
       "layer-2": {
         type: "text" as const,
@@ -288,6 +289,7 @@ describe("ElementsRenderer — multi-select highlights (Figma reference)", () =>
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left" as const,
+        textAlignVertical: "top" as const,
       },
     };
 
@@ -324,6 +326,7 @@ describe("ElementsRenderer — multi-select highlights (Figma reference)", () =>
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left" as const,
+        textAlignVertical: "top" as const,
       },
       "layer-2": {
         type: "text" as const,
@@ -337,6 +340,7 @@ describe("ElementsRenderer — multi-select highlights (Figma reference)", () =>
         fontWeight: 400,
         color: "#ffffff",
         textAlign: "left" as const,
+        textAlignVertical: "top" as const,
       },
     };
 
