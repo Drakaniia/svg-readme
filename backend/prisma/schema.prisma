@@ -11,10 +11,11 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  createdAt DateTime  @default(now())
-  projects  Project[]
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  projects     Project[]
 }
 
 model Project {
@@ -33,9 +34,11 @@ model Layer {
   id          String    @id @default(uuid())
   projectId   String
   name        String
+  type        String    @default("shape")
   orderIndex  Int
   isLocked    Boolean   @default(false)
   isVisible   Boolean   @default(true)
+  parentId    String?
   project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   elements    Element[]
 }

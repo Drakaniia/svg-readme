@@ -1,15 +1,6 @@
 require("dotenv").config();
-const express = require("express");
-const cors = require("cors");
-const projectRoutes = require("./routes/projectRoutes");
-const layerRoutes = require("./routes/layerRoutes");
-const { errorHandler } = require("./middleware/errorMiddleware");
+const app = require("./app");
 const prisma = require("./config/db");
-
-const app = express();
-
-app.use(cors());
-app.use(express.json());
 
 // Seed default User/Project for development lookup
 async function seedDefaultData() {
@@ -23,6 +14,7 @@ async function seedDefaultData() {
       create: {
         id: defaultUserId,
         email: "default@example.com",
+        passwordHash: "",
       },
     });
 
@@ -42,19 +34,6 @@ async function seedDefaultData() {
 }
 
 seedDefaultData();
-
-// Basic health check route
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok" });
-});
-
-// Mount Routes
-app.use("/api/projects", projectRoutes);
-// Layers are nested under a project: /api/projects/:projectId/layers
-app.use("/api/projects/:projectId/layers", layerRoutes);
-
-// Error Middleware
-app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
