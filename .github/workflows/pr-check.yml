@@ -3,10 +3,13 @@ name: CI / PR check
 on:
   pull_request_target:
     types: [opened, edited, synchronize, reopened]
+  pull_request:
+    types: [opened, synchronize, reopened]
 
-# pull_request_target runs in the base-repo context (has secrets/write access).
-# The checkout below pins to the base branch so no fork code is executed.
-# The script only reads context.payload and calls the GitHub API.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   issues: write
   pull-requests: write
@@ -27,3 +30,57 @@ jobs:
           script: |
             const check = require('./.github/scripts/check-pr.js');
             await check({ github, context, core });
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: app
+        run: npm run lint
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Run TypeScript typecheck
+        working-directory: app
+        run: npx tsc --noEmit
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: Run Vitest
+        working-directory: app
+        run: npm run test

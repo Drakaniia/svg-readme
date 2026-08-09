@@ -18,5 +18,19 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Allow underscore-prefixed args (e.g. callback params that are intentionally unused)
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      // ElementsRenderer doubles as the shared types/constants module, and
+      // EditorContext exports localStorage helpers — react-refresh's
+      // only-export-components rule flags every one of those (it is an HMR
+      // DX heuristic, not a correctness rule). The codebase convention is to
+      // keep utilities alongside components; revisit when the F5 refactor
+      // splits ElementsRenderer into a types module + component module.
+      "react-refresh/only-export-components": "off",
+    },
   },
 ]);
