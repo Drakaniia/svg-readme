@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import type { ReactNode, MutableRefObject } from "react";
 import EditorTopNav from "../components/ui/EditorTopNav";
 import EditorSidebar from "../components/ui/EditorSidebar";
 import EditorRightBar from "../components/ui/EditorRightBar";
 import type { EditorTool } from "../context/EditorContext";
 import { type FrameSize } from "../components/editor-sidebar/FramePanel";
 import type { ElementProperties } from "../components/editor-canvas/ElementsRenderer";
+import type { DocumentState } from "../lib/persistence";
 
 interface EditorLayoutProps {
   children: ReactNode;
@@ -14,10 +15,20 @@ interface EditorLayoutProps {
   onExport?: () => void;
   onNewProject?: () => void;
   isProjectActive?: boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   selectedLayerIds?: string[];
   elementProperties?: Record<string, ElementProperties>;
   onUpdateProperties?: (id: string, updates: Partial<ElementProperties>) => void;
+  onBulkUpdateProperties?: (updates: Partial<ElementProperties>) => void;
+  onPropertiesStart?: () => void;
   onMoveElement?: (id: string, x: number, y: number) => void;
+  onAlignmentStart?: () => void;
+  onLayerContextAction?: (actionId: string, layerId: string) => void;
+  /** Live document state ref for the navbar Save button / autosave flush. */
+  documentRef?: MutableRefObject<DocumentState>;
 }
 
 export default function EditorLayout({
@@ -28,20 +39,40 @@ export default function EditorLayout({
   onExport,
   onNewProject,
   isProjectActive,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
   selectedLayerIds,
   elementProperties,
   onUpdateProperties,
+  onBulkUpdateProperties,
+  onPropertiesStart,
   onMoveElement,
+  onAlignmentStart,
+  onLayerContextAction,
+  documentRef,
 }: EditorLayoutProps) {
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
-      <EditorTopNav onToolSelect={onToolSelect} onExport={onExport} onNewProject={onNewProject} isProjectActive={isProjectActive} />
+      <EditorTopNav
+        onExport={onExport}
+        onNewProject={onNewProject}
+        isProjectActive={isProjectActive}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={onUndo}
+        onRedo={onRedo}
+        frameSize={isProjectActive ? frameSize : undefined}
+        documentRef={documentRef}
+      />
 
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar
           frameSize={frameSize}
           setFrameSize={setFrameSize}
           onToolSelect={onToolSelect}
+          onLayerContextAction={onLayerContextAction}
         />
 
         <main className="flex-1 overflow-auto flex items-center justify-center bg-zinc-950/50 relative shadow-[inset_0_0_100px_rgba(0,0,0,0.5)]">
@@ -62,7 +93,11 @@ export default function EditorLayout({
           selectedLayerIds={selectedLayerIds}
           elementProperties={elementProperties}
           onUpdateProperties={onUpdateProperties}
+          onBulkUpdateProperties={onBulkUpdateProperties}
+          onPropertiesStart={onPropertiesStart}
           onMoveElement={onMoveElement}
+          onAlignmentStart={onAlignmentStart}
+          frameSize={frameSize}
         />
       </div>
     </div>

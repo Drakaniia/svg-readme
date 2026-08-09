@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import LayerPanel from "../editor-sidebar/LayerPanel";
-import type { LayerType } from "../editor-sidebar/LayerPanel";
+import type { LayerType } from "../../context/EditorContext";
 import FramePanel from "../editor-sidebar/FramePanel";
 import type { FrameSize } from "../editor-sidebar/FramePanel";
 import ToolPanel from "../editor-sidebar/ToolPanel";
@@ -23,9 +23,12 @@ const TEMP_PROJECT_ID = "00000000-0000-0000-0000-000000000001";
 const toLayerType = (l: ApiLayer): LayerType => ({
   id: l.id,
   name: l.name,
-  type: "shape",
-  locked: l.isLocked,
-  visible: l.isVisible,
+  type: (l.type as LayerType["type"]) ?? "shape",
+  locked: l.locked,
+  visible: l.visible,
+  active: l.active ?? false,
+  parentId: l.parentId ?? null,
+  collapsed: l.collapsed ?? false,
 });
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -34,18 +37,23 @@ interface EditorSidebarProps {
   frameSize: FrameSize;
   setFrameSize: (size: FrameSize) => void;
   onToolSelect?: (tool: EditorTool) => void;
+  onLayerContextAction?: (actionId: string, layerId: string) => void;
 }
 
 export default function EditorSidebar({
   frameSize,
   setFrameSize,
   onToolSelect,
+  onLayerContextAction,
 }: EditorSidebarProps) {
-  const { activeTool, layers, setLayers } = useEditor();
+  const { layers, setLayers, selectLayer, clearSelection, elementProperties } = useEditor();
   const projectId = TEMP_PROJECT_ID;
 
-  // ── Fetch layers on mount ──────────────────────────────────────────────────
+  // ── Fetch layers from backend only if local state is empty ───────────────
   useEffect(() => {
+    // Only load from backend if we have no layers locally (prevent overwrite)
+    if (layers.length > 0) return;
+
     getLayers(projectId)
       .then((fetched) => {
         if (fetched.length > 0) {
@@ -53,7 +61,8 @@ export default function EditorSidebar({
         }
       })
       .catch(console.error);
-  }, [projectId, setLayers]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]); // intentionally only on projectId change, not layers change
 
   // ── Layer callbacks (called by LayerPanel after optimistic updates) ────────
   const handleLayerAdd = (layer: LayerType, insertIndex: number) => {
@@ -83,12 +92,12 @@ export default function EditorSidebar({
     updateLayer(projectId, id, { name }).catch(console.error);
   };
 
-  const handleToggleVisibility = (id: string, isVisible: boolean) => {
-    updateLayer(projectId, id, { isVisible }).catch(console.error);
+  const handleToggleVisibility = (id: string, visible: boolean) => {
+    updateLayer(projectId, id, { visible }).catch(console.error);
   };
 
-  const handleToggleLock = (id: string, isLocked: boolean) => {
-    updateLayer(projectId, id, { isLocked }).catch(console.error);
+  const handleToggleLock = (id: string, locked: boolean) => {
+    updateLayer(projectId, id, { locked }).catch(console.error);
   };
 
   const handleLayerReorder = (
@@ -97,26 +106,50 @@ export default function EditorSidebar({
     reorderLayers(projectId, ordered).catch(console.error);
   };
 
+  // ── Listen for context menu events for backend persistence ────────────
+  useEffect(() => {
+    const handleVisibilityEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.id) {
+        updateLayer(projectId, detail.id, { visible: detail.visible }).catch(console.error);
+      }
+    };
+    const handleLockEvent = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.id) {
+        updateLayer(projectId, detail.id, { locked: detail.locked }).catch(console.error);
+      }
+    };
+    window.addEventListener("layer-toggle-visibility", handleVisibilityEvent);
+    window.addEventListener("layer-toggle-lock", handleLockEvent);
+    return () => {
+      window.removeEventListener("layer-toggle-visibility", handleVisibilityEvent);
+      window.removeEventListener("layer-toggle-lock", handleLockEvent);
+    };
+  }, [projectId]);
+
   return (
     <aside className="w-72 shrink-0 border-r border-white/5 bg-[#09090b]/95 backdrop-blur-xl flex flex-col z-10 shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
       {/* Tools Section */}
       <ToolPanel onToolSelect={onToolSelect} />
 
-      {/* Conditional Panels */}
-      {activeTool === "frame" && (
-        <FramePanel frameSize={frameSize} setFrameSize={setFrameSize} />
-      )}
+      {/* Frame size controls — always visible for canvas resizing */}
+      <FramePanel frameSize={frameSize} setFrameSize={setFrameSize} />
 
       {/* Layers Section */}
       <LayerPanel
         layers={layers}
         setLayers={setLayers}
+        elementProperties={elementProperties}
         onAdd={handleLayerAdd}
         onDelete={handleLayerDelete}
         onRename={handleLayerRename}
         onToggleVisibility={handleToggleVisibility}
         onToggleLock={handleToggleLock}
         onReorder={handleLayerReorder}
+        onContextAction={onLayerContextAction}
+        onSelectLayer={(id) => selectLayer(id, false)}
+        onClearSelection={clearSelection}
       />
     </aside>
   );
