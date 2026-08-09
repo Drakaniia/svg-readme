@@ -70,10 +70,10 @@ export function buildFontFaceCSS(fonts: FontFaceData[]): string {
 
 // ─── Local font assets (bundled by Vite) ─────────────────────────────────────
 
-import poppinsRegular from "../assets/fonts/poppins/regular.ttf?url";
-import poppinsMedium from "../assets/fonts/poppins/medium.ttf?url";
-import poppinsSemiBold from "../assets/fonts/poppins/semi-bold.ttf?url";
-import poppinsBold from "../assets/fonts/poppins/bold.ttf?url";
+import poppinsRegular from "../assets/fonts/Poppins/regular.ttf?url";
+import poppinsMedium from "../assets/fonts/Poppins/medium.ttf?url";
+import poppinsSemiBold from "../assets/fonts/Poppins/semi-bold.ttf?url";
+import poppinsBold from "../assets/fonts/Poppins/bold.ttf?url";
 import jbmRegular from "../assets/fonts/jetbrains-mono/static/regular.ttf?url";
 import jbmMedium from "../assets/fonts/jetbrains-mono/static/medium.ttf?url";
 import jbmBold from "../assets/fonts/jetbrains-mono/static/bold.ttf?url";
