@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useRef,
   type ReactNode,
 } from "react";
 
@@ -45,14 +46,21 @@ export function clearEditorStorage(): void {
 export type LayerType = {
   id: string;
   name: string;
-  type: string;
+  type: "text" | "shape" | "image" | "group";
   locked: boolean;
   visible: boolean;
   active?: boolean;
+  /** parentId links this layer to a group. null = root level, string = child of group with that id */
+  parentId?: string | null;
+  /** Only for groups: whether the group is collapsed in the layer panel */
+  collapsed?: boolean;
+  /** Whether this layer acts as a mask for its group children */
+  masked?: boolean;
 };
 
 export type EditorTool =
   | "move"
+  | "hand"
   | "text"
   | "frame"
   | "pen"
@@ -64,18 +72,31 @@ export type EditorTool =
   | "line"
   | "image";
 
+// Import inline to avoid circular dependency
+type ElementProperties = import("../components/editor-canvas/ElementsRenderer").ElementProperties;
+
 export interface EditorState {
   activeTool: EditorTool;
   isEditingText: boolean;
   /** @deprecated Use selectedLayerIds instead for multi-select support */
   selectedLayerId: string | null;
-  /** Multi-selection support — array of selected layer IDs.
-   *  When Shift+clicking, layers are toggled in this array.
-   *  When clicking without Shift, this array is replaced with just the clicked layer. */
+  /** Multi-selection support — array of selected layer IDs. */
   selectedLayerIds: string[];
   layers: LayerType[];
+  /** Element properties map (layerId → properties) — unified localStorage. */
+  elementProperties: Record<string, ElementProperties>;
   frameSize: { width: number; height: number };
   isProjectActive: boolean;
+  /** When true, the canvas previews CSS animations on elements that have an animation config. */
+  previewAnimation: boolean;
+  /** When > 0, the canvas is in scrub mode and animations are paused at this time position. */
+  scrubTime: number | null;
+  /** Whether the document has unsaved changes (dirty state for navbar indicator). */
+  isDirty: boolean;
+  /** The backend project ID, if this project has been saved/loaded from backend. */
+  currentProjectId: string | null;
+  /** Editable project name shown in the navbar. */
+  projectName: string;
 }
 
 export interface EditorActions {
@@ -83,18 +104,25 @@ export interface EditorActions {
   setIsEditingText: (editing: boolean) => void;
   /** @deprecated Use selectLayer(id, isShift) or clearSelection() instead */
   setSelectedLayerId: (id: string | null) => void;
-  /** Direct setter for selectedLayerIds — used for bulk selection like rubber-band.
-   *  Prefer selectLayer() or clearSelection() for standard interactions. */
+  /** Direct setter for selectedLayerIds. */
   setSelectedLayerIds: React.Dispatch<React.SetStateAction<string[]>>;
-  /** Multi-select aware selection: when isShift is true, toggles the layer
-   *  in/out of selection. When isShift is false, replaces selection with
-   *  just this layer. Matches Figma's Shift+click behavior. */
+  /** Multi-select aware selection: when isShift is true, toggles the layer in/out. */
   selectLayer: (id: string, isShift: boolean) => void;
-  /** Clears all selected layers. Matches Figma's click-on-empty-canvas. */
+  /** Clears all selected layers. */
   clearSelection: () => void;
   setLayers: React.Dispatch<React.SetStateAction<LayerType[]>>;
+  /** Element properties setter (persists to localStorage). */
+  setElementProperties: React.Dispatch<React.SetStateAction<Record<string, ElementProperties>>>;
   setFrameSize: (size: { width: number; height: number }) => void;
   setIsProjectActive: (active: boolean) => void;
+  setPreviewAnimation: (preview: boolean) => void;
+  setScrubTime: (time: number | null) => void;
+  /** Mark the document as clean (called after a successful save). */
+  markClean: () => void;
+  /** Set the backend project ID. */
+  setCurrentProjectId: (id: string | null) => void;
+  /** Set the project name. */
+  setProjectName: (name: string) => void;
 }
 
 export type EditorContextValue = EditorState & EditorActions;
@@ -128,6 +156,12 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   const [layers, setLayers] = useState<LayerType[]>(
     initial?.layers ?? readStorage<LayerType[]>("layers", []),
   );
+  const [elementProperties, setElementProperties] = useState<
+    Record<string, ElementProperties>
+  >(
+    initial?.elementProperties ??
+    readStorage<Record<string, ElementProperties>>("elementProperties", {}),
+  );
   const [frameSize, setFrameSize] = useState(
     initial?.frameSize ??
       readStorage("frameSize", { width: 700, height: 350 }),
@@ -135,34 +169,58 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   const [isProjectActive, setIsProjectActive] = useState(
     initial?.isProjectActive ?? readStorage<boolean>("isProjectActive", false),
   );
+  const [previewAnimation, setPreviewAnimation] = useState(false);
+  const [scrubTime, setScrubTime] = useState<number | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
+    readStorage<string | null>("currentProjectId", null),
+  );
+  const [projectName, setProjectName] = useState(
+    readStorage<string>("projectName", "Untitled"),
+  );
 
   // ── Persist to localStorage whenever these values change ──────────────────
   useEffect(() => { writeStorage("layers", layers); }, [layers]);
+  useEffect(() => { writeStorage("elementProperties", elementProperties); }, [elementProperties]);
   useEffect(() => { writeStorage("frameSize", frameSize); }, [frameSize]);
   useEffect(() => { writeStorage("isProjectActive", isProjectActive); }, [isProjectActive]);
+  useEffect(() => { writeStorage("currentProjectId", currentProjectId); }, [currentProjectId]);
+  useEffect(() => { writeStorage("projectName", projectName); }, [projectName]);
+
+  // Mark dirty whenever state that affects the document changes.
+  // isProjectActive is excluded from the dep array intentionally: merely
+  // activating a project (opening a blank canvas) should not flag dirty.
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    // Intentionally marks dirty in an effect: document mutations can come from
+    // many places, and we must exclude isProjectActive from the deps so simply
+    // opening a project doesn't flag the document as dirty.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (isProjectActive) setIsDirty(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layers, elementProperties, frameSize]);
 
   // Multi-select action: Figma Shift+click behavior
   const selectLayer = useCallback(
     (id: string, isShift: boolean) => {
       if (isShift) {
-        // Shift+click: toggle this layer in/out of the selection
         setSelectedLayerIds((prev) => {
           const next = prev.includes(id)
             ? prev.filter((lid) => lid !== id)
             : [...prev, id];
-          // Keep selectedLayerId in sync: point to first selected or null
-          setSelectedLayerId(next.length > 0 ? next[0] : null);
-          // Sync layer active flags so the LayerPanel shows all selected layers
-          setLayers((prevLayers) =>
-            prevLayers.map((l) => ({ ...l, active: next.includes(l.id) })),
-          );
+          // Batch dependent state updates via microtask to avoid nesting setState calls
+          queueMicrotask(() => {
+            setSelectedLayerId(next.length > 0 ? next[0] : null);
+            setLayers((prevLayers) =>
+              prevLayers.map((l) => ({ ...l, active: next.includes(l.id) })),
+            );
+          });
           return next;
         });
       } else {
-        // Normal click: replace selection with just this layer
         setSelectedLayerIds([id]);
         setSelectedLayerId(id);
-        // Only this layer is active in the sidebar
         setLayers((prevLayers) =>
           prevLayers.map((l) => ({ ...l, active: l.id === id })),
         );
@@ -171,24 +229,22 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
     [setLayers],
   );
 
-  // Clear all selection: Figma click-on-empty-canvas
+  // Clear all selection
   const clearSelection = useCallback(() => {
     setSelectedLayerIds([]);
     setSelectedLayerId(null);
-    // Deactivate all layers in the sidebar
     setLayers((prev) => prev.map((l) => ({ ...l, active: false })));
   }, [setLayers]);
 
   const value: EditorContextValue = {
-    // State
     activeTool,
     isEditingText,
     selectedLayerId,
     selectedLayerIds,
     layers,
+    elementProperties,
     frameSize,
     isProjectActive,
-    // Actions
     setActiveTool,
     setIsEditingText,
     setSelectedLayerId,
@@ -196,8 +252,19 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
     selectLayer,
     clearSelection,
     setLayers,
+    setElementProperties,
     setFrameSize,
     setIsProjectActive,
+    previewAnimation,
+    setPreviewAnimation,
+    scrubTime,
+    setScrubTime,
+    isDirty,
+    markClean: () => setIsDirty(false),
+    currentProjectId,
+    setCurrentProjectId,
+    projectName,
+    setProjectName,
   };
 
   return (

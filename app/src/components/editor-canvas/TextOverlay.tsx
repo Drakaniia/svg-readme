@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from "react";
+import { measureTextWidth } from "../../lib/editor/textMeasure";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +20,16 @@ interface TextOverlayProps {
   color: string;
   /** Background fill of the text box (hex). Shows as overlay background. */
   backgroundColor?: string;
-  textAlign: "left" | "center" | "right";
+  textAlign: "left" | "center" | "right" | "justify";
+  /** Vertical alignment inside the text box */
+  textAlignVertical?: "top" | "center" | "bottom";
+  /** Text box resizing behavior: auto modes let the box hug the content. */
+  textAutoResize?: "NONE" | "HEIGHT" | "WIDTH_AND_HEIGHT";
+  lineHeight?: number;
+  letterSpacing?: number;
+  italic?: boolean;
+  textDecoration?: "NONE" | "UNDERLINE" | "STRIKETHROUGH";
+  textCase?: "ORIGINAL" | "UPPER" | "LOWER" | "TITLE";
   /** Called with updated content on change */
   onChange: (content: string) => void;
   /** Called when editing should commit/blur */
@@ -36,31 +46,53 @@ export default function TextOverlay({
   x,
   y,
   width,
+  height,
   fontFamily,
   fontSize,
   fontWeight,
   color,
   backgroundColor,
   textAlign,
+  textAlignVertical = "top",
+  textAutoResize = "NONE",
+  lineHeight,
+  letterSpacing = 0,
+  italic = false,
+  textDecoration = "NONE",
+  textCase = "ORIGINAL",
   onChange,
   onCommit,
 }: TextOverlayProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Compute overlay width — use fixed width if set, otherwise auto-size
+  // Compute overlay width through the shared text measurement (A11) so the
+  // editing box matches the rendered/exported box. fontSize is already zoomed
+  // by the caller, so the measured width lands in screen pixels too.
   const overlayWidth =
     width === "auto"
-      ? Math.max(content.length * fontSize * 0.6 + 16, 60)
+      ? Math.max(
+          content
+            .split("\n")
+            .reduce(
+              (max, line) =>
+                Math.max(
+                  max,
+                  measureTextWidth(line, {
+                    fontFamily,
+                    fontSize,
+                    fontWeight,
+                    italic,
+                    letterSpacing,
+                  }),
+                ),
+              0,
+            ),
+          20,
+        )
       : width;
-      
-  const adjustedY = y - fontSize - 4;
 
-  let adjustedX = x - 4;
-  if (textAlign === "center") {
-    adjustedX = x - overlayWidth / 2;
-  } else if (textAlign === "right") {
-    adjustedX = x - overlayWidth;
-  }
+  // x,y is now the TOP-LEFT of the textbox (matching Open Pencil <g transform> pattern).
+  // No more adjustedX/adjustedY hacks — the overlay sits exactly at the box origin.
 
   // Auto-focus on mount
   useEffect(() => {
@@ -72,12 +104,9 @@ export default function TextOverlay({
   }, [layerId]);
 
   // Auto-resize the textarea height whenever content changes.
-  // Uses useLayoutEffect so the resize happens synchronously before paint,
-  // preventing a visible flash of incorrect sizing.
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (el) {
-      // Reset to auto first so scrollHeight reports the actual content height
       el.style.height = "auto";
       el.style.height = Math.max(el.scrollHeight, fontSize * 1.6) + "px";
     }
@@ -88,7 +117,6 @@ export default function TextOverlay({
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();
-      // Figma behavior: Escape commits the text, doesn't discard it
       onCommit();
     }
   };
@@ -98,16 +126,42 @@ export default function TextOverlay({
     onCommit();
   };
 
+  // Vertical alignment: flex so the (auto-height) textarea sits at the top,
+  // center, or bottom of the fixed-height box — mirrors open-pencil's vertical
+  // text alignment in the editing overlay.
+  const alignY =
+    textAlignVertical === "center"
+      ? "center"
+      : textAlignVertical === "bottom"
+        ? "flex-end"
+        : "flex-start";
+
+  // Auto-resize modes: the overlay box hugs the content (open-pencil resizes
+  // the node while editing). Fixed (NONE) keeps the box height, growing only
+  // when content overflows so typing is never clipped.
+  const autoGrow = textAutoResize !== "NONE";
+  const overlayHeight = autoGrow ? undefined : Math.max(height, fontSize * 1.6);
+
+  const textTransform =
+    textCase === "UPPER"
+      ? "uppercase"
+      : textCase === "LOWER"
+        ? "lowercase"
+        : textCase === "TITLE"
+          ? "capitalize"
+          : "none";
+
   return (
     <div
-      className="absolute z-50"
+      className="absolute z-50 flex"
       style={{
-        left: adjustedX,
-        top: adjustedY,
+        left: x,
+        top: y,
         width: overlayWidth,
         minWidth: 60,
-        minHeight: fontSize * 1.6,
-        // Use the text box background fill if set, otherwise the blue editing indicator
+        minHeight: height || fontSize * 1.4,
+        height: overlayHeight,
+        alignItems: alignY,
         background: backgroundColor ?? "rgba(59, 130, 246, 0.06)",
         border: backgroundColor
           ? "1px solid rgba(255, 255, 255, 0.15)"
@@ -130,9 +184,18 @@ export default function TextOverlay({
           fontFamily,
           fontSize,
           fontWeight,
+          fontStyle: italic ? "italic" : "normal",
           color,
           textAlign,
-          lineHeight: 1.4,
+          textTransform,
+          textDecoration:
+            textDecoration === "UNDERLINE"
+              ? "underline"
+              : textDecoration === "STRIKETHROUGH"
+                ? "line-through"
+                : "none",
+          letterSpacing: letterSpacing ? `${letterSpacing}px` : undefined,
+          lineHeight: lineHeight ? lineHeight / fontSize : 1.4,
           padding: 0,
           margin: 0,
           whiteSpace: "pre-wrap",
