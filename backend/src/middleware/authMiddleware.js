@@ -1,4 +1,4 @@
-const prisma = require("../config/db");
+const { User, Project } = require("../models");
 const { verifyToken } = require("../lib/jwt");
 
 /**
@@ -21,15 +21,12 @@ const protect = async (req, res, next) => {
       return res.status(401).json({ error: "Not authorized, invalid token" });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true },
-    });
+    const user = await User.findById(decoded.id, { email: 1 });
     if (!user) {
       return res.status(401).json({ error: "Not authorized, user not found" });
     }
 
-    req.user = user;
+    req.user = { id: user._id.toString(), email: user.email };
     next();
   } catch (error) {
     next(error);
@@ -47,10 +44,7 @@ const requireProjectOwner = async (req, res, next) => {
       return res.status(400).json({ error: "Project id missing" });
     }
 
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { id: true, userId: true },
-    });
+    const project = await Project.findById(projectId, { userId: 1 });
 
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
@@ -61,7 +55,7 @@ const requireProjectOwner = async (req, res, next) => {
         .json({ error: "Not authorized to access this project" });
     }
 
-    req.project = project;
+    req.project = { id: project._id.toString(), userId: project.userId };
     next();
   } catch (error) {
     next(error);

@@ -1,13 +1,12 @@
-const prisma = require("../config/db");
+const { Layer } = require("../models");
 
 // @desc    Get all layers for a project
 // @route   GET /api/projects/:projectId/layers
 const getLayers = async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const layers = await prisma.layer.findMany({
-      where: { projectId },
-      orderBy: { orderIndex: "asc" },
+    const layers = await Layer.find({ projectId }, null, {
+      sort: { orderIndex: 1 },
     });
     res.json(layers);
   } catch (error) {
@@ -23,18 +22,13 @@ const createLayer = async (req, res, next) => {
     const { id, name, orderIndex } = req.body;
 
     // Shift existing layers down to make room at top
-    await prisma.layer.updateMany({
-      where: { projectId },
-      data: { orderIndex: { increment: 1 } },
-    });
+    await Layer.updateMany({ projectId }, { $inc: { orderIndex: 1 } });
 
-    const layer = await prisma.layer.create({
-      data: {
-        ...(id ? { id } : {}),
-        name: name || "New Layer",
-        orderIndex: orderIndex ?? 0,
-        projectId,
-      },
+    const layer = await Layer.create({
+      _id: id || undefined,
+      name: name || "New Layer",
+      orderIndex: orderIndex ?? 0,
+      projectId,
     });
     res.status(201).json(layer);
   } catch (error) {
@@ -49,11 +43,7 @@ const updateLayer = async (req, res, next) => {
     const { id, projectId } = req.params;
     const { name, isLocked, isVisible, orderIndex } = req.body;
 
-    // The layer must belong to the (already ownership-checked) project
-    const owned = await prisma.layer.findFirst({
-      where: { id, projectId },
-      select: { id: true },
-    });
+    const owned = await Layer.findOne({ _id: id, projectId }, { _id: 1 });
     if (!owned) return res.status(404).json({ error: "Layer not found" });
 
     const data = {};
@@ -62,10 +52,11 @@ const updateLayer = async (req, res, next) => {
     if (isVisible !== undefined) data.isVisible = isVisible;
     if (orderIndex !== undefined) data.orderIndex = orderIndex;
 
-    const layer = await prisma.layer.update({
-      where: { id },
-      data,
-    });
+    const layer = await Layer.findByIdAndUpdate(
+      id,
+      { $set: data },
+      { new: true },
+    );
     res.json(layer);
   } catch (error) {
     next(error);
@@ -78,13 +69,10 @@ const deleteLayer = async (req, res, next) => {
   try {
     const { id, projectId } = req.params;
 
-    const owned = await prisma.layer.findFirst({
-      where: { id, projectId },
-      select: { id: true },
-    });
+    const owned = await Layer.findOne({ _id: id, projectId }, { _id: 1 });
     if (!owned) return res.status(404).json({ error: "Layer not found" });
 
-    await prisma.layer.delete({ where: { id } });
+    await Layer.deleteOne({ _id: id });
     res.json({ success: true });
   } catch (error) {
     next(error);
@@ -98,14 +86,11 @@ const reorderLayers = async (req, res, next) => {
     const { projectId } = req.params;
     const { layers } = req.body; // Array of { id, orderIndex }
 
-    const updates = layers.map(({ id, orderIndex }) =>
-      prisma.layer.updateMany({
-        where: { id, projectId },
-        data: { orderIndex },
-      }),
+    await Promise.all(
+      layers.map(({ id, orderIndex }) =>
+        Layer.updateOne({ _id: id, projectId }, { $set: { orderIndex } }),
+      ),
     );
-
-    await prisma.$transaction(updates);
     res.json({ success: true });
   } catch (error) {
     next(error);

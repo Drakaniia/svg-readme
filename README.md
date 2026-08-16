@@ -21,7 +21,8 @@ GitHub strips `<script>` tags from anything rendered inline in a README, but an 
 | Layer | Tool |
 |---|---|
 | **Frontend** | React, Vite, Tailwind CSS v4, React Router |
-| **Backend** | Express |
+| **Backend** | Express, Mongoose |
+| **Database** | MongoDB (MongoDB Atlas) |
 | **Language** | TypeScript / JavaScript |
 
 ## Project Structure
@@ -37,7 +38,7 @@ svg-readme/
 │   │   ├── pages/       # Route pages (Home, Editor, etc.)
 │   │   └── App.tsx      # Main application routing
 │   └── package.json     # Frontend dependencies
-├── backend/             # Express backend (SVG generation engine)
+├── backend/             # Express + Mongoose backend (SVG/page persistence engine)
 │   └── package.json     # Backend dependencies
 └── README.md
 ```
@@ -73,14 +74,17 @@ npm run dev
 
 ### 3. Run the Backend
 
-Before running the backend, make sure your MySQL server is running (e.g., via XAMPP) and you have created a database called `svg_readme`.
+First, create a MongoDB database and get its connection URI:
+- Local: run `mongod`, then use `mongodb://localhost:27017/svg_readme`.
+- Recommend MongoDB Atlas (free tier) for development/deployment: create a cluster and copy the driver URI.
 
-Then, navigate to the `backend` directory, set up the database tables using Prisma, and start the development server:
+Copy `backend/.env.example` to `backend/.env` and set `MONGODB_URI`.
+
+Then, start the development server:
 
 ```bash
 cd backend
 npm install
-npm run db:push     # Synchronizes your database tables with the Prisma schema
 npm run dev         # Starts the nodemon development server on http://localhost:3001
 ```
 

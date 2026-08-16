@@ -3,7 +3,7 @@ import { getAuthToken, invalidateAuth } from "./auth";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** Matches the Prisma Layer model on the backend */
+/** Matches the Layer model on the backend */
 export type ApiLayer = {
   id: string;
   projectId: string;
@@ -17,7 +17,7 @@ export type ApiLayer = {
   collapsed?: boolean;
 };
 
-/** Matches the Prisma Project model on the backend */
+/** Matches the Project model on the backend */
 export type ApiProject = {
   id: string;
   userId: string;
@@ -29,7 +29,7 @@ export type ApiProject = {
   _count?: { layers: number };
 };
 
-/** Matches the Prisma Element model on the backend */
+/** Matches the Element model on the backend */
 export type ApiElement = {
   id: string;
   layerId: string;
