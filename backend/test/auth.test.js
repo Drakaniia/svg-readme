@@ -2,27 +2,27 @@ const { describe, it, beforeEach, afterEach } = require("node:test");
 const assert = require("node:assert/strict");
 const request = require("supertest");
 const bcrypt = require("bcryptjs");
-const prisma = require("../src/config/db");
+const { User } = require("../src/models");
 const app = require("../src/app");
 const { signToken } = require("../src/lib/jwt");
 
-// ─── Prisma stubbing helpers ──────────────────────────────────────────────────
+// ─── Mongoose stubbing helpers ────────────────────────────────────────────────
 
 const saved = new Map();
 
 function stubMethod(model, method, impl) {
   if (!saved.has(model)) saved.set(model, new Map());
   const methods = saved.get(model);
-  if (!methods.has(method)) methods.set(method, prisma[model][method]);
-  prisma[model][method] = impl;
+  if (!methods.has(method)) methods.set(method, model[method]);
+  model[method] = impl;
 }
 
 beforeEach(() => {
   // Default: no user exists, no user is created
-  stubMethod("user", "findUnique", async () => null);
-  stubMethod("user", "create", async (args) => ({
-    id: "user-1",
-    email: args.data.email,
+  stubMethod(User, "findOne", async () => null);
+  stubMethod(User, "create", async (args) => ({
+    _id: "user-1",
+    email: args.email,
     createdAt: new Date("2026-01-01T00:00:00Z"),
   }));
 });
@@ -30,7 +30,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const [model, methods] of saved) {
     for (const [method, original] of methods) {
-      prisma[model][method] = original;
+      model[method] = original;
     }
   }
   saved.clear();
@@ -57,9 +57,9 @@ describe("POST /api/auth/register", () => {
 
   it("stores a bcrypt-hashed password (never plaintext)", async () => {
     let captured;
-    stubMethod("user", "create", async (args) => {
-      captured = args.data;
-      return { id: "user-1", email: args.data.email };
+    stubMethod(User, "create", async (args) => {
+      captured = args;
+      return { _id: "user-1", email: args.email };
     });
 
     await request(app)
@@ -75,7 +75,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it("rejects a duplicate email with 409", async () => {
-    stubMethod("user", "findUnique", async () => ({ id: "existing" }));
+    stubMethod(User, "findOne", async () => ({ _id: "existing" }));
     const res = await request(app)
       .post("/api/auth/register")
       .send({ email: "taken@example.com", password: validPassword });
@@ -112,7 +112,11 @@ describe("POST /api/auth/register", () => {
 describe("POST /api/auth/login", () => {
   it("logs in with correct credentials and returns a token", async () => {
     const hash = bcrypt.hashSync(validPassword, 4);
-    stubMethod("user", "findUnique", async () => ({ ...validUser, passwordHash: hash }));
+    stubMethod(User, "findOne", async () => ({
+      _id: validUser.id,
+      email: validUser.email,
+      passwordHash: hash,
+    }));
 
     const res = await request(app)
       .post("/api/auth/login")
@@ -125,7 +129,11 @@ describe("POST /api/auth/login", () => {
 
   it("rejects a wrong password with 401", async () => {
     const hash = bcrypt.hashSync(validPassword, 4);
-    stubMethod("user", "findUnique", async () => ({ ...validUser, passwordHash: hash }));
+    stubMethod(User, "findOne", async () => ({
+      _id: validUser.id,
+      email: validUser.email,
+      passwordHash: hash,
+    }));
 
     const res = await request(app)
       .post("/api/auth/login")
@@ -148,8 +156,8 @@ describe("POST /api/auth/login", () => {
 
 describe("GET /api/auth/me", () => {
   it("returns the current user for a valid token", async () => {
-    stubMethod("user", "findUnique", async () => ({
-      id: validUser.id,
+    stubMethod(User, "findById", async () => ({
+      _id: validUser.id,
       email: validUser.email,
       createdAt: new Date("2026-01-01T00:00:00Z"),
     }));
@@ -175,7 +183,6 @@ describe("GET /api/auth/me", () => {
   });
 
   it("rejects a token for a deleted user", async () => {
-    // findUnique still returns null (user deleted)
     const res = await request(app)
       .get("/api/auth/me")
       .set("Authorization", `Bearer ${signToken("gone")}`);

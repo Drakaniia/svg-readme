@@ -1,15 +1,27 @@
-const prisma = require("../config/db");
+const { Project, Layer } = require("../models");
+
+async function layerCount(projectId) {
+  return Layer.countDocuments({ projectId });
+}
+
+async function toJson(doc) {
+  if (!doc) return null;
+  const json = doc.toObject();
+  json._count = { layers: await layerCount(json.id) };
+  return json;
+}
 
 // @desc    Get all projects owned by the current user
 // @route   GET /api/projects
 const getProjects = async (req, res, next) => {
   try {
-    const projects = await prisma.project.findMany({
-      where: { userId: req.user.id },
-      orderBy: { updatedAt: "desc" },
-      include: { _count: { select: { layers: true } } },
-    });
-    res.json(projects);
+    const projects = await Project.find(
+      { userId: req.user.id },
+      null,
+      { sort: { updatedAt: -1 } },
+    );
+    const out = await Promise.all(projects.map(toJson));
+    res.json(out);
   } catch (error) {
     next(error);
   }
@@ -19,12 +31,12 @@ const getProjects = async (req, res, next) => {
 // @route   GET /api/projects/:id
 const getProject = async (req, res, next) => {
   try {
-    const project = await prisma.project.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      include: { _count: { select: { layers: true } } },
+    const project = await Project.findOne({
+      _id: req.params.id,
+      userId: req.user.id,
     });
     if (!project) return res.status(404).json({ error: "Project not found" });
-    res.json(project);
+    res.json(await toJson(project));
   } catch (error) {
     next(error);
   }
@@ -35,16 +47,14 @@ const getProject = async (req, res, next) => {
 const createProject = async (req, res, next) => {
   try {
     const { id, name, canvasWidth, canvasHeight } = req.body;
-    const project = await prisma.project.create({
-      data: {
-        ...(id ? { id } : {}),
-        userId: req.user.id,
-        name: name ?? "Untitled",
-        canvasWidth: canvasWidth ?? 800,
-        canvasHeight: canvasHeight ?? 200,
-      },
+    const project = await Project.create({
+      _id: id || undefined,
+      userId: req.user.id,
+      name: name ?? "Untitled",
+      canvasWidth: canvasWidth ?? 800,
+      canvasHeight: canvasHeight ?? 200,
     });
-    res.status(201).json(project);
+    res.status(201).json(await toJson(project));
   } catch (error) {
     next(error);
   }
@@ -56,10 +66,10 @@ const updateProject = async (req, res, next) => {
   try {
     const { name, canvasWidth, canvasHeight } = req.body;
 
-    const owned = await prisma.project.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      select: { id: true },
-    });
+    const owned = await Project.findOne(
+      { _id: req.params.id, userId: req.user.id },
+      { _id: 1 },
+    );
     if (!owned) return res.status(404).json({ error: "Project not found" });
 
     const data = {};
@@ -67,11 +77,12 @@ const updateProject = async (req, res, next) => {
     if (canvasWidth !== undefined) data.canvasWidth = canvasWidth;
     if (canvasHeight !== undefined) data.canvasHeight = canvasHeight;
 
-    const project = await prisma.project.update({
-      where: { id: req.params.id },
-      data,
-    });
-    res.json(project);
+    const project = await Project.findByIdAndUpdate(
+      req.params.id,
+      { $set: data },
+      { new: true },
+    );
+    res.json(await toJson(project));
   } catch (error) {
     next(error);
   }
@@ -81,13 +92,13 @@ const updateProject = async (req, res, next) => {
 // @route   DELETE /api/projects/:id
 const deleteProject = async (req, res, next) => {
   try {
-    const owned = await prisma.project.findFirst({
-      where: { id: req.params.id, userId: req.user.id },
-      select: { id: true },
-    });
+    const owned = await Project.findOne(
+      { _id: req.params.id, userId: req.user.id },
+      { _id: 1 },
+    );
     if (!owned) return res.status(404).json({ error: "Project not found" });
 
-    await prisma.project.delete({ where: { id: req.params.id } });
+    await Project.deleteOne({ _id: req.params.id });
     res.json({ success: true });
   } catch (error) {
     next(error);

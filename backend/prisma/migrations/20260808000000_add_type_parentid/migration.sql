@@ -1,3 +1,0 @@
--- AlterTable
-ALTER TABLE `Layer` ADD COLUMN `type` VARCHAR(191) NOT NULL DEFAULT 'shape',
-    ADD COLUMN `parentId` VARCHAR(191) NULL;

@@ -7,11 +7,23 @@ const authRoutes = require("./routes/authRoutes");
 const { protect, requireProjectOwner } = require("./middleware/authMiddleware");
 const { errorHandler } = require("./middleware/errorMiddleware");
 const layerController = require("./controllers/layerController");
+const { connectDB } = require("./config/db");
 
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+
+// Ensure a shared Mongo connection before handling requests. Safe for
+// serverless cold starts: connectDB caches the connection promise.
+app.use(async (req, res, next) => {
+  try {
+    if (process.env.MONGODB_URI) await connectDB();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
