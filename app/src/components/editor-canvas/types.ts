@@ -187,6 +187,10 @@ export interface CanvasProps {
   ) => void;
   /** Called when user finishes drawing a path (pen tool) */
   onCreatePath: (props: Omit<PathElementProperties, "type">) => void;
+  /** Called when the paint bucket tool paints a layer with the current color. */
+  onPaintLayer: (layerId: string, color: string) => void;
+  /** Color selected for the paint bucket tool. */
+  paintColor?: string;
   /** Called when an element is selected */
   onSelectLayer: (id: string | null) => void;
   /** Called when an element is clicked with Shift held — toggles multi-select.

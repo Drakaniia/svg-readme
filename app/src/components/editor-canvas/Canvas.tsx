@@ -67,6 +67,8 @@ export default function Canvas({
   onCreateText,
   onCreateShape,
   onCreatePath,
+  onPaintLayer,
+  paintColor,
   onSelectLayer,
   onShiftSelectLayer,
   onClearSelection,
@@ -605,6 +607,16 @@ export default function Canvas({
           onEditText(layerId);
           return;
         }
+      } else if (activeTool === "paint") {
+        // Paint bucket: instant paint, no drag. Painting only applies to a
+        // layer that has element properties — clicking the empty canvas (or a
+        // layer with no drawn content) is a no-op, so the canvas is never painted.
+        const props = elementProperties[layerId];
+        if (props) {
+          onSelectLayer(layerId);
+          onPaintLayer(layerId, paintColor ?? "#3b82f6");
+        }
+        return;
       }
 
       const ctx = buildContext(e);
@@ -620,6 +632,8 @@ export default function Canvas({
       onSelectLayer,
       onShiftSelectLayer,
       onEditText,
+      onPaintLayer,
+      paintColor,
       onCommitText,
       buildContext,
     ],

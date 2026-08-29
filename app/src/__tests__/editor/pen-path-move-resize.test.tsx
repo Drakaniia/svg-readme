@@ -78,6 +78,7 @@ function Harness({ activeTool = "move" as const }: { activeTool?: "move" }) {
     onResizeElement: handleResizeElement,
     onEditingChange: vi.fn(),
     onEditText: vi.fn(),
+    onPaintLayer: vi.fn(),
     snapEnabled: false,
   };
   return <Canvas {...canvasProps} />;
@@ -180,6 +181,7 @@ describe("Pen tool: closing a path via double-click finalizes it", () => {
       onMoveElement: vi.fn(),
       onEditingChange: vi.fn(),
       onEditText: vi.fn(),
+      onPaintLayer: vi.fn(),
     };
     return canvasProps;
   }

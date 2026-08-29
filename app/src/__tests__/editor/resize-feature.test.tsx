@@ -44,6 +44,7 @@ const defaultProps: CanvasProps = {
   onResizeElement: vi.fn(),
   onEditingChange: vi.fn(),
   onEditText: vi.fn(),
+  onPaintLayer: vi.fn(),
 };
 
 describe("Canvas — Resizable Shapes Feature", () => {

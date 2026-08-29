@@ -75,6 +75,7 @@ export function EditorInner() {
   const {
     activeTool,
     setActiveTool,
+    paintColor,
     isEditingText,
     setIsEditingText,
     selectedLayerId,
@@ -1012,6 +1013,47 @@ export function EditorInner() {
   const handleRotateStart = useCallback(() => {
     saveToHistory();
   }, [saveToHistory]);
+
+  // ── Paint bucket: fill a layer with the selected paint color ───────────────
+  // Applies to the layer's visual color: plain shapes/paths get `fill`, line
+  // shapes render with `stroke` (ElementsRenderer uses stroke for lines) so
+  // they get `stroke` instead, and text gets `color`. Layers without a
+  // paintable property (images, groups) are left untouched. Only layers that
+  // already have drawn content can be painted — the empty canvas is never
+  // painted (handled in Canvas).
+  const handlePaintLayer = useCallback(
+    (layerId: string, color: string) => {
+      const props = elementProperties[layerId];
+      if (!props) return;
+      if (props.type === "path") {
+        if (props.fill === color) return;
+        saveToHistory();
+        setElementProperties((prev) => ({
+          ...prev,
+          [layerId]: { ...props, fill: color },
+        }));
+      } else if (props.type === "shape") {
+        // Line shapes are rendered with their stroke color, not fill.
+        const paintProp: "fill" | "stroke" =
+          props.kind === "line" ? "stroke" : "fill";
+        const current = props[paintProp];
+        if (current === color) return;
+        saveToHistory();
+        setElementProperties((prev) => ({
+          ...prev,
+          [layerId]: { ...props, [paintProp]: color },
+        }));
+      } else if (props.type === "text") {
+        if (props.color === color) return;
+        saveToHistory();
+        setElementProperties((prev) => ({
+          ...prev,
+          [layerId]: { ...props, color },
+        }));
+      }
+    },
+    [elementProperties, saveToHistory, setElementProperties],
+  );
   // ── Tool change handler (commits text if editing, then switches) ──────────
   const handleToolChange = useCallback(
     (tool: EditorTool) => {
@@ -1696,6 +1738,8 @@ export function EditorInner() {
             onCreateText={handleCreateText}
             onCreateShape={handleCreateShape}
             onCreatePath={handleCreatePath}
+            onPaintLayer={handlePaintLayer}
+            paintColor={paintColor}
             onSelectLayer={handleSelectLayer}
             onShiftSelectLayer={handleShiftSelectLayer}
             onClearSelection={handleClearSelection}

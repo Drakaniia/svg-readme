@@ -6,6 +6,7 @@ import { createShapeTool } from "./ShapeTool";
 import { PanTool } from "./PanTool";
 import { PenTool } from "./PenTool";
 import { HandTool } from "./HandTool";
+import { PaintTool } from "./PaintTool";
 
 /**
  * Map every EditorTool to its ToolHandler.
@@ -20,6 +21,7 @@ const registry: Record<EditorTool, ToolHandler> = {
   frame: PanTool,
   pen: PenTool,
   image: PanTool,
+  paint: PaintTool,
   rect: createShapeTool("rect"),
   circle: createShapeTool("circle"),
   triangle: createShapeTool("triangle"),

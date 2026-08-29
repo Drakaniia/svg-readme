@@ -25,6 +25,35 @@ GitHub strips `<script>` tags from anything rendered inline in a README, but an 
 | **Database** | MongoDB (MongoDB Atlas) |
 | **Language** | TypeScript / JavaScript |
 
+### Backend & Database Architecture
+
+**Backend Framework:**
+- **Express.js** (v5.2.1) — Fast, minimalist web framework for Node.js
+- **Node.js** — JavaScript runtime environment
+
+**Database:**
+- **MongoDB** — NoSQL document database for flexible, schema-less data storage
+- **Mongoose** (v9.9.2) — Object Data Modeling (ODM) library providing schema validation, middleware, and query building
+
+**Authentication & Security:**
+- **JWT (jsonwebtoken)** (v9.0.3) — Stateless authentication via JSON Web Tokens
+- **bcryptjs** (v3.0.3) — Password hashing with salt rounds for secure credential storage
+- **CORS** (v2.8.6) — Cross-Origin Resource Sharing middleware for secure API access
+
+**Environment & Config:**
+- **dotenv** (v17.4.2) — Environment variable management from `.env` files
+
+**Development & Testing:**
+- **nodemon** (v3.1.14) — Auto-restart development server on file changes
+- **supertest** (v7.2.2) — HTTP assertion library for API endpoint testing
+
+**API Routes & Models:**
+- `authRoutes.js` — User login, signup, token refresh
+- `projectRoutes.js` — CRUD operations for banner projects
+- `layerRoutes.js` — Layer hierarchy and ordering
+- `elementRoutes.js` — SVG element (shapes, text, images) management
+- Data models: **User**, **Project**, **Layer**, **Element**
+
 ## Project Structure
 
 ```text

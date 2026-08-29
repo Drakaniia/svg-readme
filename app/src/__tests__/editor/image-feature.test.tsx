@@ -50,6 +50,7 @@ const defaultProps: CanvasProps = {
   onRotateElement: vi.fn(),
   onEditingChange: vi.fn(),
   onEditText: vi.fn(),
+  onPaintLayer: vi.fn(),
 };
 
 describe("Canvas — Image Feature", () => {

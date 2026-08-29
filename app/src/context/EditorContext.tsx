@@ -70,13 +70,16 @@ export type EditorTool =
   | "star"
   | "hexagon"
   | "line"
-  | "image";
+  | "image"
+  | "paint";
 
 // Import inline to avoid circular dependency
 type ElementProperties = import("../components/editor-canvas/ElementsRenderer").ElementProperties;
 
 export interface EditorState {
   activeTool: EditorTool;
+  /** Color selected for the paint bucket tool (hex like "#ff0000"). */
+  paintColor: string;
   isEditingText: boolean;
   /** @deprecated Use selectedLayerIds instead for multi-select support */
   selectedLayerId: string | null;
@@ -101,6 +104,8 @@ export interface EditorState {
 
 export interface EditorActions {
   setActiveTool: (tool: EditorTool) => void;
+  /** Set the paint bucket color. */
+  setPaintColor: (color: string) => void;
   setIsEditingText: (editing: boolean) => void;
   /** @deprecated Use selectLayer(id, isShift) or clearSelection() instead */
   setSelectedLayerId: (id: string | null) => void;
@@ -144,6 +149,9 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   const [activeTool, setActiveTool] = useState<EditorTool>(
     initial?.activeTool ?? "move",
   );
+  const [paintColor, setPaintColor] = useState<string>(
+    readStorage("paintColor", "#3b82f6"),
+  );
   const [isEditingText, setIsEditingText] = useState(
     initial?.isEditingText ?? false,
   );
@@ -186,6 +194,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   useEffect(() => { writeStorage("isProjectActive", isProjectActive); }, [isProjectActive]);
   useEffect(() => { writeStorage("currentProjectId", currentProjectId); }, [currentProjectId]);
   useEffect(() => { writeStorage("projectName", projectName); }, [projectName]);
+  useEffect(() => { writeStorage("paintColor", paintColor); }, [paintColor]);
 
   // Mark dirty whenever state that affects the document changes.
   // isProjectActive is excluded from the dep array intentionally: merely
@@ -238,6 +247,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
 
   const value: EditorContextValue = {
     activeTool,
+    paintColor,
     isEditingText,
     selectedLayerId,
     selectedLayerIds,
@@ -246,6 +256,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
     frameSize,
     isProjectActive,
     setActiveTool,
+    setPaintColor,
     setIsEditingText,
     setSelectedLayerId,
     setSelectedLayerIds,

@@ -10,9 +10,11 @@ import {
   Star,
   Hexagon,
   Slash,
+  PaintBucket,
 } from "lucide-react";
 import { useEditor } from "../../context/EditorContext";
 import type { EditorTool } from "../../context/EditorContext";
+import ColorPickerPopover from "../ui/ColorPickerPopover";
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
 
@@ -28,6 +30,7 @@ const tools: { id: EditorTool; icon: React.ReactNode; name: string; shortcut?: s
   { id: "line", icon: <Slash className="w-4 h-4" />, name: "Line", shortcut: "L" },
   { id: "text", icon: <Type className="w-4 h-4" />, name: "Text", shortcut: "T" },
   { id: "image", icon: <ImageIcon className="w-4 h-4" />, name: "Image" },
+  { id: "paint", icon: <PaintBucket className="w-4 h-4" />, name: "Paint Bucket" },
 ];
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -39,7 +42,7 @@ interface ToolPanelProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ToolPanel({ onToolSelect }: ToolPanelProps) {
-  const { activeTool } = useEditor();
+  const { activeTool, paintColor, setPaintColor } = useEditor();
 
   return (
     <div className="p-4 border-b border-white/5">
@@ -64,6 +67,18 @@ export default function ToolPanel({ onToolSelect }: ToolPanelProps) {
           );
         })}
       </div>
+
+      {/* Paint bucket color chooser — only shown while the tool is active */}
+      {activeTool === "paint" && (
+        <div className="mt-4 pt-4 border-t border-white/5">
+          <div className="flex items-center gap-2 mb-2.5">
+            <span className="text-[11px] font-medium text-zinc-300 uppercase tracking-wider">
+              Paint Color
+            </span>
+          </div>
+          <ColorPickerPopover value={paintColor} onChange={setPaintColor} />
+        </div>
+      )}
     </div>
   );
 }
