@@ -1,0 +1,13 @@
+{
+  "name": "svg-readme-monorepo",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names app,backend --prefix-colors blue,green \"cd app && npm run dev\" \"cd backend && npm run dev\"",
+    "dev:app": "cd app && npm run dev",
+    "dev:backend": "cd backend && npm run dev",
+    "install:all": "cd app && npm install && cd ../backend && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
