@@ -58,18 +58,15 @@ export type LayerType = {
   masked?: boolean;
 };
 
+export type ShapeSubTool = "rect" | "circle" | "triangle" | "star" | "hexagon" | "line";
+
 export type EditorTool =
   | "move"
   | "hand"
   | "text"
   | "frame"
   | "pen"
-  | "rect"
-  | "circle"
-  | "triangle"
-  | "star"
-  | "hexagon"
-  | "line"
+  | "shape"
   | "image"
   | "paint";
 
@@ -78,6 +75,8 @@ type ElementProperties = import("../components/editor-canvas/ElementsRenderer").
 
 export interface EditorState {
   activeTool: EditorTool;
+  /** Which shape sub-tool is active when `activeTool === "shape"`. */
+  selectedShapeKind: ShapeSubTool;
   /** Color selected for the paint bucket tool (hex like "#ff0000"). */
   paintColor: string;
   isEditingText: boolean;
@@ -104,6 +103,7 @@ export interface EditorState {
 
 export interface EditorActions {
   setActiveTool: (tool: EditorTool) => void;
+  setSelectedShapeKind: (kind: ShapeSubTool) => void;
   /** Set the paint bucket color. */
   setPaintColor: (color: string) => void;
   setIsEditingText: (editing: boolean) => void;
@@ -148,6 +148,9 @@ interface EditorProviderProps {
 export function EditorProvider({ children, initial }: EditorProviderProps) {
   const [activeTool, setActiveTool] = useState<EditorTool>(
     initial?.activeTool ?? "move",
+  );
+  const [selectedShapeKind, setSelectedShapeKind] = useState<ShapeSubTool>(
+    initial?.selectedShapeKind ?? readStorage<ShapeSubTool>("selectedShapeKind", "rect"),
   );
   const [paintColor, setPaintColor] = useState<string>(
     readStorage("paintColor", "#3b82f6"),
@@ -195,6 +198,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
   useEffect(() => { writeStorage("currentProjectId", currentProjectId); }, [currentProjectId]);
   useEffect(() => { writeStorage("projectName", projectName); }, [projectName]);
   useEffect(() => { writeStorage("paintColor", paintColor); }, [paintColor]);
+  useEffect(() => { writeStorage("selectedShapeKind", selectedShapeKind); }, [selectedShapeKind]);
 
   // Mark dirty whenever state that affects the document changes.
   // isProjectActive is excluded from the dep array intentionally: merely
@@ -247,6 +251,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
 
   const value: EditorContextValue = {
     activeTool,
+    selectedShapeKind,
     paintColor,
     isEditingText,
     selectedLayerId,
@@ -256,6 +261,7 @@ export function EditorProvider({ children, initial }: EditorProviderProps) {
     frameSize,
     isProjectActive,
     setActiveTool,
+    setSelectedShapeKind,
     setPaintColor,
     setIsEditingText,
     setSelectedLayerId,

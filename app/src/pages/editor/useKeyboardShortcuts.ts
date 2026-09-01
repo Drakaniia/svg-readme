@@ -1,7 +1,9 @@
 import { useEffect, type RefObject } from "react";
-import type { EditorTool, LayerType } from "../../context/EditorContext";
+import type { EditorTool, LayerType, ShapeSubTool } from "../../context/EditorContext";
 import { clampZoom } from "../../lib/editor/geometry";
 import type { ElementProperties } from "../../components/editor-canvas/ElementsRenderer";
+
+const SHAPE_CYCLE: ShapeSubTool[] = ["rect", "circle", "triangle", "star", "hexagon", "line"];
 
 export interface KeyboardShortcutHandlers {
   isEditingRef: RefObject<boolean>;
@@ -24,6 +26,9 @@ export interface KeyboardShortcutHandlers {
   /** Ctrl+/ or ?: toggle the shortcut cheat-sheet popover (B5). */
   onToggleShortcuts?: () => void;
   setActiveTool: (tool: EditorTool) => void;
+  selectedShapeKind?: ShapeSubTool;
+  setSelectedShapeKind?: (kind: ShapeSubTool) => void;
+  activeTool?: EditorTool;
   selectedLayerId: string | null;
   selectedLayerIds: string[];
   setSelectedLayerId: (id: string | null) => void;
@@ -58,6 +63,9 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
     handleExport,
     onToggleShortcuts,
     setActiveTool,
+    selectedShapeKind,
+    setSelectedShapeKind,
+    activeTool,
     selectedLayerId,
     selectedLayerIds,
     setSelectedLayerId,
@@ -86,6 +94,8 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // If another handler (e.g. pen tool Escape → finalize) already handled this key, don't double-handle
+      if (e.defaultPrevented) return;
       // Ignore when editing text (V/T would be typed as characters)
       if (isEditingRef.current) {
         if (e.key === "Escape") {
@@ -149,21 +159,31 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
           e.preventDefault();
           setActiveTool("pen");
           break;
-        // ── B5: Shape tool shortcuts ───────────────────────────────────
+        // ── B5: Shape tool shortcuts (Phase 2 grouped model) ─────────────
         case "r":
-        case "R":
+        case "R": {
           e.preventDefault();
-          setActiveTool("rect");
+          if (setSelectedShapeKind) {
+            const cur = selectedShapeKind ?? "rect";
+            const idx = SHAPE_CYCLE.indexOf(cur);
+            // If already on shape tool, cycle; otherwise pick rect (first press)
+            const next = activeTool === "shape" && idx !== -1 ? SHAPE_CYCLE[(idx + 1) % SHAPE_CYCLE.length]! : "rect";
+            setSelectedShapeKind(next as ShapeSubTool);
+          }
+          setActiveTool("shape");
           break;
+        }
         case "o":
         case "O":
           e.preventDefault();
-          setActiveTool("circle");
+          setSelectedShapeKind?.("circle");
+          setActiveTool("shape");
           break;
         case "l":
         case "L":
           e.preventDefault();
-          setActiveTool("line");
+          setSelectedShapeKind?.("line");
+          setActiveTool("shape");
           break;
         case "h":
         case "H":
@@ -346,6 +366,9 @@ export function useKeyboardShortcuts(handlers: KeyboardShortcutHandlers) {
     handleExport,
     onToggleShortcuts,
     setActiveTool,
+    selectedShapeKind,
+    setSelectedShapeKind,
+    activeTool,
     selectedLayerId,
     selectedLayerIds,
     setSelectedLayerId,

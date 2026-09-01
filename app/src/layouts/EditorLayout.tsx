@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { ReactNode, MutableRefObject } from "react";
 import EditorTopNav from "../components/ui/EditorTopNav";
+import TopToolbar from "../components/ui/TopToolbar";
 import EditorSidebar from "../components/ui/EditorSidebar";
 import EditorRightBar from "../components/ui/EditorRightBar";
 import type { EditorTool } from "../context/EditorContext";
@@ -29,6 +31,8 @@ interface EditorLayoutProps {
   onLayerContextAction?: (actionId: string, layerId: string) => void;
   /** Live document state ref for the navbar Save button / autosave flush. */
   documentRef?: MutableRefObject<DocumentState>;
+  activeRightTab?: "design" | "animate" | "export";
+  onRightTabChange?: (tab: "design" | "animate" | "export") => void;
 }
 
 export default function EditorLayout({
@@ -52,7 +56,12 @@ export default function EditorLayout({
   onAlignmentStart,
   onLayerContextAction,
   documentRef,
+  activeRightTab: controlledRightTab,
+  onRightTabChange: controlledOnRightTabChange,
 }: EditorLayoutProps) {
+  const [internalRightTab, setInternalRightTab] = useState<"design" | "animate" | "export">("design");
+  const activeRightTab = controlledRightTab ?? internalRightTab;
+  const onRightTabChange = controlledOnRightTabChange ?? setInternalRightTab;
   return (
     <div className="h-screen w-screen flex flex-col bg-[#09090b] text-zinc-100 font-[Poppins] selection:bg-blue-500/30 selection:text-white">
       <EditorTopNav
@@ -67,11 +76,18 @@ export default function EditorLayout({
         documentRef={documentRef}
       />
 
+      {isProjectActive && (
+        <TopToolbar
+          onToolSelect={onToolSelect}
+          activeRightTab={activeRightTab}
+          onRightTabChange={onRightTabChange}
+        />
+      )}
+
       <div className="flex flex-1 overflow-hidden relative">
         <EditorSidebar
           frameSize={frameSize}
           setFrameSize={setFrameSize}
-          onToolSelect={onToolSelect}
           onLayerContextAction={onLayerContextAction}
         />
 
@@ -98,6 +114,8 @@ export default function EditorLayout({
           onMoveElement={onMoveElement}
           onAlignmentStart={onAlignmentStart}
           frameSize={frameSize}
+          activeTab={activeRightTab}
+          onTabChange={onRightTabChange}
         />
       </div>
     </div>

@@ -1,4 +1,4 @@
-import type { EditorTool } from "../../context/EditorContext";
+import type { EditorTool, ShapeSubTool } from "../../context/EditorContext";
 import type { ToolHandler } from "./types";
 import { MoveTool } from "./MoveTool";
 import { TextTool } from "./TextTool";
@@ -11,10 +11,10 @@ import { PaintTool } from "./PaintTool";
 /**
  * Map every EditorTool to its ToolHandler.
  *
- * Shape tools share a factory (`createShapeTool`) because their interaction
- * is identical — only the ShapeKind parameter differs.
+ * The "shape" tool is parameterized by `ShapeSubTool` — created dynamically via
+ * `getToolHandler("shape", selectedShapeKind)`. Non-shape tools are singletons.
  */
-const registry: Record<EditorTool, ToolHandler> = {
+const registry: Record<Exclude<EditorTool, "shape">, ToolHandler> = {
   move: MoveTool,
   hand: HandTool,
   text: TextTool,
@@ -22,18 +22,22 @@ const registry: Record<EditorTool, ToolHandler> = {
   pen: PenTool,
   image: PanTool,
   paint: PaintTool,
-  rect: createShapeTool("rect"),
-  circle: createShapeTool("circle"),
-  triangle: createShapeTool("triangle"),
-  star: createShapeTool("star"),
-  hexagon: createShapeTool("hexagon"),
-  line: createShapeTool("line"),
 };
+
+const LEGACY_SHAPES = new Set<string>(["rect", "circle", "triangle", "star", "hexagon", "line"]);
 
 /**
  * Return the ToolHandler for a given EditorTool.
- * Never returns undefined because every tool has a registered handler.
+ * For the "shape" tool, pass `shapeKind` to create the correct shape handler.
+ * Legacy shape strings (e.g. "rect") are supported for backwards compat with
+ * existing tests that still use the pre-phase2 tool names.
  */
-export function getToolHandler(tool: EditorTool): ToolHandler {
-  return registry[tool];
+export function getToolHandler(tool: EditorTool | ShapeSubTool | string, shapeKind?: ShapeSubTool): ToolHandler {
+  if (tool === "shape") {
+    return createShapeTool(shapeKind ?? "rect");
+  }
+  if (LEGACY_SHAPES.has(tool as string)) {
+    return createShapeTool(tool as ShapeSubTool);
+  }
+  return registry[tool as Exclude<EditorTool, "shape">];
 }
