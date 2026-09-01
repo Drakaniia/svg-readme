@@ -113,6 +113,42 @@ export function updatePendingHandle(
 }
 
 /**
+ * Build the effective handles that should be used for preview rendering while a
+ * handle drag is in progress. When the pending pull has moved past the threshold,
+ * it is merged as if it were committed, so the curve A→B is visible LIVE while
+ * dragging the handle of B (Figment/Illustrator behavior). Returns a new array
+ * or the original handles if no pending handle should be shown.
+ */
+export function getEffectiveHandles(
+  ps: NonNullable<ToolInteractionState["pathDragState"]>,
+): PathVertexHandle[] | undefined {
+  if (ps.pendingHandleVertex == null || !ps.pendingHandleMoved || !ps.pendingHandlePoint) {
+    return ps.handles as PathVertexHandle[] | undefined;
+  }
+  const index = ps.pendingHandleVertex;
+  const anchor = ps.points[index];
+  const point = ps.pendingHandlePoint;
+  const handles: (PathVertexHandle | undefined)[] = ps.handles
+    ? ps.handles.map((h) => (h ? { ...h } : undefined))
+    : (new Array(ps.points.length).fill(undefined) as PathVertexHandle[]);
+  const current = handles[index] ?? {};
+  if (index === 0) {
+    handles[index] = { ...current, out: point, smooth: false };
+  } else {
+    const inn = point;
+    handles[index] = { ...current, in: inn, out: mirrorPoint(inn, anchor), smooth: true };
+  }
+  return handles as PathVertexHandle[];
+}
+
+/** Alias kept for test compatibility — returns effective handles for a path state. */
+export function getEffectiveHandlesForPreview(
+  ps: NonNullable<ToolInteractionState["pathDragState"]>,
+): PathVertexHandle[] | undefined {
+  return getEffectiveHandles(ps);
+}
+
+/**
  * Finalize the pending handle pull on mouseup.
  *
  * First anchor (index 0): the pull becomes the outgoing tangent (curves the
@@ -145,10 +181,16 @@ export function commitPendingHandle(
     }
   }
 
+  // After committing, the rubber-band preview should start from the anchor
+  // itself, not from the handle tip, otherwise the dashed line appears as an
+  // extension of the handle until the next mousemove.
+  const committedIndex = ps.pendingHandleVertex;
+  const anchor = ps.points[committedIndex];
   return {
     pathDragState: {
       ...ps,
       handles,
+      previewPoint: anchor ? ([anchor[0], anchor[1]] as [number, number]) : ps.previewPoint,
       pendingHandleVertex: undefined,
       pendingHandlePoint: undefined,
       pendingHandleMoved: false,
