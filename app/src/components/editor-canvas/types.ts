@@ -34,27 +34,22 @@ export const DEFAULT_TEXT_PROPS: Omit<
   textCase: "ORIGINAL",
 };
 
-/** Tool IDs that are shape-placement tools */
-export const SHAPE_TOOLS = new Set<EditorTool>([
-  "rect",
-  "circle",
-  "triangle",
-  "star",
-  "hexagon",
-  "line",
-]);
+/** @deprecated Use EditorContext `selectedShapeKind` directly. Kept for backwards compat. */
+export const SHAPE_TOOLS = new Set<EditorTool>(["shape"] as EditorTool[]);
 
-/** Map from a shape EditorTool to its ShapeKind */
-export function toolToShapeKind(tool: EditorTool): ShapeKind | null {
+/** Map the active shape sub-tool to its ShapeKind. Returns null for non-shape tools. */
+export function toolToShapeKind(tool: EditorTool, shapeKind?: ShapeKind | null): ShapeKind | null {
+  if (tool === "shape" && shapeKind) return shapeKind;
+  // Legacy fallback: if an old EditorTool shape string is passed directly
   if (
-    tool === "rect" ||
-    tool === "circle" ||
-    tool === "triangle" ||
-    tool === "star" ||
-    tool === "hexagon" ||
-    tool === "line"
+    tool === ("rect" as EditorTool) ||
+    tool === ("circle" as EditorTool) ||
+    tool === ("triangle" as EditorTool) ||
+    tool === ("star" as EditorTool) ||
+    tool === ("hexagon" as EditorTool) ||
+    tool === ("line" as EditorTool)
   ) {
-    return tool;
+    return tool as unknown as ShapeKind;
   }
   return null;
 }
@@ -89,6 +84,9 @@ export interface ShapeDragState {
   startY: number;
   currentX: number;
   currentY: number;
+  /** Whether Shift was held when the drag started or is currently held.
+   *  When true, shapes are constrained to 1:1 aspect ratio (perfect square/circle). */
+  shiftKey?: boolean;
 }
 
 /** State for rubber-band / marquee selection on empty canvas. */
@@ -165,6 +163,7 @@ export interface PathDragState {
 export interface CanvasProps {
   frameSize: { width: number; height: number };
   activeTool: EditorTool;
+  selectedShapeKind?: import("../../context/EditorContext").ShapeSubTool;
   layers: LayerType[];
   selectedLayerId: string | null;
   selectedLayerIds: string[];

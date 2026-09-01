@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Grid3X3, Magnet, Maximize2, Minus, Plus, ChevronDown } from "lucide-react";
+import { GridFour, Magnet, ArrowsOut, Minus, Plus, CaretDown } from "@phosphor-icons/react";
 
 interface ViewportControlsProps {
   zoom: number;
@@ -72,7 +72,7 @@ export default function ViewportControls({
           title="Zoom level"
         >
           {Math.round(zoom * 100)}%
-          <ChevronDown className="h-3 w-3 text-zinc-500" aria-hidden="true" />
+          <CaretDown className="h-3 w-3 text-zinc-500" aria-hidden="true" />
         </button>
 
         {showZoomMenu && (
@@ -126,7 +126,7 @@ export default function ViewportControls({
         aria-label="Center canvas"
         title="Center canvas"
       >
-        <Maximize2 className="h-4 w-4" aria-hidden="true" />
+        <ArrowsOut className="h-4 w-4" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -140,7 +140,7 @@ export default function ViewportControls({
         aria-pressed={gridEnabled}
         title="Toggle grid (G)"
       >
-        <Grid3X3 className="h-4 w-4" aria-hidden="true" />
+        <GridFour className="h-4 w-4" aria-hidden="true" />
       </button>
       <button
         type="button"

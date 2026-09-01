@@ -1,5 +1,7 @@
 import type { TextDragState, ShapeDragState, RubberBandState, PathDragState } from "./types";
 import { pointsToSvgD, mirrorPoint } from "../../lib/editor/pathUtils";
+import { getEffectiveHandles } from "../../lib/editor-tools/PenTool";
+import { trianglePath, starPath, hexagonPath } from "./shapeHelpers";
 
 interface DragPreviewsProps {
   rubberBandState: RubberBandState | null;
@@ -43,11 +45,22 @@ export default function DragPreviews({
         />
       )}
       {shapeDragState && (() => {
-        const { kind, startX, startY, currentX, currentY } = shapeDragState;
-        const x = Math.min(startX, currentX);
-        const y = Math.min(startY, currentY);
-        const w = Math.max(Math.abs(currentX - startX), 1);
-        const h = Math.max(Math.abs(currentY - startY), 1);
+        const { kind, startX, startY, currentX, currentY, shiftKey } = shapeDragState;
+        const dx = currentX - startX;
+        const dy = currentY - startY;
+        let w = Math.max(Math.abs(dx), 1);
+        let h = Math.max(Math.abs(dy), 1);
+        let x = Math.min(startX, currentX);
+        let y = Math.min(startY, currentY);
+
+        // Shift constraint: 1:1 aspect ratio preview
+        if (shiftKey && kind !== "line") {
+          const side = Math.max(Math.abs(dx), Math.abs(dy));
+          w = side;
+          h = side;
+          x = dx >= 0 ? startX : startX - side;
+          y = dy >= 0 ? startY : startY - side;
+        }
 
         if (kind === "line") {
           return (
@@ -78,6 +91,45 @@ export default function DragPreviews({
           );
         }
 
+        if (kind === "triangle") {
+          return (
+            <path
+              d={trianglePath(x, y, w, h)}
+              fill="rgba(139,92,246,0.12)"
+              stroke="#8b5cf6"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+              className="pointer-events-none"
+            />
+          );
+        }
+
+        if (kind === "star") {
+          return (
+            <path
+              d={starPath(x, y, w, h)}
+              fill="rgba(139,92,246,0.12)"
+              stroke="#8b5cf6"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+              className="pointer-events-none"
+            />
+          );
+        }
+
+        if (kind === "hexagon") {
+          return (
+            <path
+              d={hexagonPath(x, y, w, h)}
+              fill="rgba(139,92,246,0.12)"
+              stroke="#8b5cf6"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+              className="pointer-events-none"
+            />
+          );
+        }
+
         return (
           <rect
             x={x} y={y}
@@ -86,17 +138,21 @@ export default function DragPreviews({
             stroke="#8b5cf6"
             strokeWidth={1}
             strokeDasharray="4 2"
-            rx={kind === "rect" ? 8 : 2}
+            rx={8}
             className="pointer-events-none"
           />
         );
       })()}
-      {pathDragState && pathDragState.points.length > 0 && (
+      {pathDragState && pathDragState.points.length > 0 && (() => {
+        const effectiveHandles = pathDragState.isBuilding
+          ? getEffectiveHandles(pathDragState)
+          : pathDragState.handles;
+        return (
         <g className="pointer-events-none">
           {/* Placed vertices and connecting segments (bezier when handles exist) */}
           {pathDragState.points.length >= 2 && (
             <path
-              d={pointsToSvgD(pathDragState.points, pathDragState.closed, pathDragState.handles)}
+              d={pointsToSvgD(pathDragState.points, pathDragState.closed, effectiveHandles)}
               fill="none"
               stroke="#3b82f6"
               strokeWidth={2}
@@ -187,7 +243,8 @@ export default function DragPreviews({
             />
           )}
         </g>
-      )}
+        );
+      })()}
     </>
   );
 }
