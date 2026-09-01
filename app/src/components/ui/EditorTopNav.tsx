@@ -1,21 +1,22 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   ArrowLeft,
-  Download,
-  FilePlus2,
-  Undo2,
-  Redo2,
-  Save,
+  DownloadSimple,
+  FilePlus,
+  ArrowCounterClockwise,
+  ArrowClockwise,
+  FloppyDisk,
   FolderOpen,
   Check,
-  Loader2,
-  AlertCircle,
-  ChevronDown,
-  Trash2,
+  Spinner,
+  WarningCircle,
+  CaretDown,
+  Trash,
   Keyboard,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { Link, useNavigate } from "react-router-dom";
 import { useEditor } from "../../context/EditorContext";
+import { UnsavedChangesModal } from "./UnsavedChangesModal";
 import {
   onSaveStatus,
   saveDocument,
@@ -100,20 +101,30 @@ export default function EditorTopNav({
     return () => document.removeEventListener("mousedown", handler);
   }, [openDropdown]);
 
+  // ── Modal state for unsaved-changes guards ───────────────────────
+  const [unsavedModalAction, setUnsavedModalAction] = useState<
+    "new" | "open" | "back" | null
+  >(null);
+  const [pendingOpenProjectId, setPendingOpenProjectId] = useState<
+    string | null
+  >(null);
+
+  const closeUnsavedModal = () => {
+    setUnsavedModalAction(null);
+    setPendingOpenProjectId(null);
+  };
+
   const handleBack = (e: React.MouseEvent) => {
     if (isDirty && isProjectActive) {
       e.preventDefault();
-      if (window.confirm("You have unsaved changes. Leave anyway?")) {
-        navigate("/");
-      }
+      setUnsavedModalAction("back");
     }
   };
 
   const handleNew = () => {
-    const msg = isDirty
-      ? "You have unsaved changes. Start a new project anyway?"
-      : "Start a new project? Your current canvas will be cleared.";
-    if (window.confirm(msg)) {
+    if (isDirty) {
+      setUnsavedModalAction("new");
+    } else {
       onNewProject?.();
     }
   };
@@ -153,6 +164,12 @@ export default function EditorTopNav({
     async (projectId: string) => {
       setOpenDropdown(false);
 
+      if (isDirty) {
+        setPendingOpenProjectId(projectId);
+        setUnsavedModalAction("open");
+        return;
+      }
+
       // Flush any pending autosave first
       if (documentRef?.current) {
         await flushAutosave(documentRef.current);
@@ -166,7 +183,7 @@ export default function EditorTopNav({
         new CustomEvent("load-project", { detail: result }),
       );
     },
-    [documentRef],
+    [documentRef, isDirty],
   );
 
   const handleDeleteProject = useCallback(
@@ -187,13 +204,13 @@ export default function EditorTopNav({
   const statusIcon = () => {
     switch (saveStatus.kind) {
       case "saving":
-        return <Loader2 className="w-3 h-3 animate-spin text-zinc-400" />;
+        return <Spinner className="w-3 h-3 animate-spin text-zinc-400" />;
       case "saved":
         return <Check className="w-3 h-3 text-green-400" />;
       case "error":
         return (
           <span title={saveStatus.message}>
-            <AlertCircle className="w-3 h-3 text-red-400" />
+            <WarningCircle className="w-3 h-3 text-red-400" />
           </span>
         );
       default:
@@ -203,7 +220,62 @@ export default function EditorTopNav({
     }
   };
 
+  // ── Modal action handlers ─────────────────────────────────────────
+  const handleModalSaveAndContinue = async () => {
+    if (unsavedModalAction === "back") {
+      await handleSave();
+      closeUnsavedModal();
+      navigate("/");
+    } else if (unsavedModalAction === "new") {
+      await handleSave();
+      closeUnsavedModal();
+      onNewProject?.();
+    } else if (unsavedModalAction === "open" && pendingOpenProjectId) {
+      await handleSave();
+      closeUnsavedModal();
+      await handleLoadProject(pendingOpenProjectId);
+    }
+  };
+
+  const handleModalDiscard = async () => {
+    if (unsavedModalAction === "back") {
+      closeUnsavedModal();
+      navigate("/");
+    } else if (unsavedModalAction === "new") {
+      closeUnsavedModal();
+      onNewProject?.();
+    } else if (unsavedModalAction === "open" && pendingOpenProjectId) {
+      const projectId = pendingOpenProjectId;
+      closeUnsavedModal();
+      // Flush and load without saving
+      if (documentRef?.current) {
+        await flushAutosave(documentRef.current);
+      }
+      const result = await loadProject(projectId);
+      if (result) {
+        window.dispatchEvent(
+          new CustomEvent("load-project", { detail: result }),
+        );
+      }
+    }
+  };
+
+  const modalTitle =
+    unsavedModalAction === "new"
+      ? "Start New Project?"
+      : unsavedModalAction === "open"
+        ? "Open Another Project?"
+        : "Leave Editor?";
+
+  const modalDescription =
+    unsavedModalAction === "new"
+      ? "Your current canvas will be cleared."
+      : unsavedModalAction === "open"
+        ? "Loading another project will replace your current canvas."
+        : "You have unsaved changes. Leave anyway?";
+
   return (
+    <>
     <header className="h-16 shrink-0 flex items-center justify-between px-6 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-md z-10">
       <div className="flex items-center gap-5">
         <Link
@@ -290,7 +362,7 @@ export default function EditorTopNav({
               title="Undo (Ctrl/Cmd+Z)"
               className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <Undo2 className="w-4 h-4" />
+              <ArrowCounterClockwise className="w-4 h-4" />
             </button>
             <button
               onClick={onRedo}
@@ -298,7 +370,7 @@ export default function EditorTopNav({
               title="Redo (Ctrl/Cmd+Shift+Z)"
               className="p-2 rounded-md text-zinc-400 hover:text-white hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
             >
-              <Redo2 className="w-4 h-4" />
+              <ArrowClockwise className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -314,7 +386,7 @@ export default function EditorTopNav({
               >
                 <FolderOpen className="w-4 h-4" />
                 Open
-                <ChevronDown className="w-3 h-3 text-zinc-500" />
+                <CaretDown className="w-3 h-3 text-zinc-500" />
               </button>
 
               {openDropdown && (
@@ -327,7 +399,7 @@ export default function EditorTopNav({
                   <div className="max-h-64 overflow-y-auto">
                     {loadingProjects ? (
                       <div className="px-3 py-6 text-center text-zinc-500 text-sm">
-                        <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                        <Spinner className="w-4 h-4 animate-spin mx-auto mb-2" />
                         Loading...
                       </div>
                     ) : projects.length === 0 ? (
@@ -356,7 +428,7 @@ export default function EditorTopNav({
                             className="p-1 rounded text-zinc-600 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition-all"
                             title="Delete project"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash className="w-3.5 h-3.5" />
                           </button>
                         </button>
                       ))
@@ -373,7 +445,7 @@ export default function EditorTopNav({
               title={currentProjectId ? "Save (Ctrl+S)" : "Save As..."}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:bg-white/5 rounded-md transition-all duration-200 disabled:opacity-50"
             >
-              <Save className="w-4 h-4" />
+              <FloppyDisk className="w-4 h-4" />
               {currentProjectId ? "Save" : "Save As"}
             </button>
           </>
@@ -385,7 +457,7 @@ export default function EditorTopNav({
             title="New Project"
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-zinc-300 hover:text-white border border-white/10 hover:bg-white/5 rounded-md transition-all duration-200"
           >
-            <FilePlus2 className="w-4 h-4" />
+            <FilePlus className="w-4 h-4" />
             New
           </button>
         )}
@@ -394,10 +466,20 @@ export default function EditorTopNav({
           onClick={onExport}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.3)] transition-all duration-200 border border-blue-500/50"
         >
-          <Download className="w-4 h-4" />
+          <DownloadSimple className="w-4 h-4" />
           Export SVG
         </button>
       </div>
     </header>
+
+    <UnsavedChangesModal
+      open={unsavedModalAction !== null}
+      onClose={closeUnsavedModal}
+      onDiscard={handleModalDiscard}
+      onSaveAndContinue={handleModalSaveAndContinue}
+      title={modalTitle}
+      description={modalDescription}
+    />
+    </>
   );
 }
