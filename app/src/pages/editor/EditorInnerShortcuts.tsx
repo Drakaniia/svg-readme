@@ -8,7 +8,7 @@ export const SHORTCUT_GROUPS: { title: string; items: [string, string][] }[] = [
       ["H", "Hand (pan)"],
       ["T", "Text"],
       ["P", "Pen"],
-      ["R", "Rectangle"],
+      ["R", "Shape (R cycles shapes)"],
       ["O", "Circle"],
       ["L", "Line"],
     ],
