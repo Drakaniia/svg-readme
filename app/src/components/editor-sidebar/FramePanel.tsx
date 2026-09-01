@@ -1,4 +1,4 @@
-import { Maximize, Monitor, Smartphone, Tablet } from "lucide-react";
+import { ArrowsOut, Monitor, DeviceMobile, DeviceTablet } from "@phosphor-icons/react";
 
 export type FrameSize = {
   width: number;
@@ -21,13 +21,13 @@ const PRESETS = [
     name: "Square",
     width: 500,
     height: 500,
-    icon: <Tablet className="w-3.5 h-3.5" />,
+    icon: <DeviceTablet className="w-3.5 h-3.5" />,
   },
   {
     name: "Mobile",
     width: 390,
     height: 844,
-    icon: <Smartphone className="w-3.5 h-3.5" />,
+    icon: <DeviceMobile className="w-3.5 h-3.5" />,
   },
 ];
 
@@ -49,7 +49,7 @@ export default function FramePanel({
     <div className="border-b border-white/5 flex flex-col shrink-0">
       <div className="px-5 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase font-semibold tracking-wider">
-          <Maximize className="w-3.5 h-3.5" />
+          <ArrowsOut className="w-3.5 h-3.5" />
           Frame
         </div>
       </div>

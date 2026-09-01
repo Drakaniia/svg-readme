@@ -1,20 +1,20 @@
 import {
   Copy,
-  Trash2,
-  BringToFront,
-  SendToBack,
+  Trash,
+  ArrowFatLineUp,
+  ArrowFatLineDown,
   ArrowUp,
   ArrowDown,
-  Group,
-  Ungroup,
+  Stack,
+  StackSimple,
   Eye,
-  EyeOff,
+  EyeSlash,
   Lock,
-  Unlock,
-  ListCollapse,
-  Frame,
+  LockOpen,
+  List,
+  FrameCorners,
   Clipboard,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import type { ContextMenuItem } from "./LayerContextMenu";
 
 export interface LayerActionCallbacks {
@@ -75,7 +75,7 @@ export function buildLayerContextMenu(
     {
       id: "delete",
       label: "Delete",
-      icon: <Trash2 className="w-3.5 h-3.5" />,
+      icon: <Trash className="w-3.5 h-3.5" />,
       shortcut: "\u232B",
       destructive: true,
     },
@@ -88,7 +88,7 @@ export function buildLayerContextMenu(
     {
       id: "bringToFront",
       label: "Bring to Front",
-      icon: <BringToFront className="w-3.5 h-3.5" />,
+      icon: <ArrowFatLineUp className="w-3.5 h-3.5" />,
       shortcut: "\u2318\u21E7]",
     },
     {
@@ -106,7 +106,7 @@ export function buildLayerContextMenu(
     {
       id: "sendToBack",
       label: "Send to Back",
-      icon: <SendToBack className="w-3.5 h-3.5" />,
+      icon: <ArrowFatLineDown className="w-3.5 h-3.5" />,
       shortcut: "\u2318\u21E7[",
     },
   );
@@ -118,7 +118,7 @@ export function buildLayerContextMenu(
     items.push({
       id: "group",
       label: "Group Selection",
-      icon: <Group className="w-3.5 h-3.5" />,
+      icon: <Stack className="w-3.5 h-3.5" />,
       shortcut: "\u2318G",
     });
   }
@@ -126,7 +126,7 @@ export function buildLayerContextMenu(
     items.push({
       id: "ungroup",
       label: "Ungroup",
-      icon: <Ungroup className="w-3.5 h-3.5" />,
+      icon: <StackSimple className="w-3.5 h-3.5" />,
       shortcut: "\u2318\u21E7G",
     });
   }
@@ -135,12 +135,12 @@ export function buildLayerContextMenu(
     {
       id: "wrapInFrame",
       label: "Frame Selection",
-      icon: <Frame className="w-3.5 h-3.5" />,
+      icon: <FrameCorners className="w-3.5 h-3.5" />,
     },
     {
       id: "flatten",
       label: "Flatten",
-      icon: <ListCollapse className="w-3.5 h-3.5" />,
+      icon: <List className="w-3.5 h-3.5" />,
       disabled: !options.isGroup,
     },
   );
@@ -150,7 +150,7 @@ export function buildLayerContextMenu(
     items.push({
       id: "boolean",
       label: "Boolean",
-      icon: <ListCollapse className="w-3.5 h-3.5" />,
+      icon: <List className="w-3.5 h-3.5" />,
       children: [
         { id: "booleanUnion", label: "Union" },
         { id: "booleanSubtract", label: "Subtract" },
@@ -171,7 +171,7 @@ export function buildLayerContextMenu(
     items.push({
       id: "toggleMask",
       label: "Use as Mask",
-      icon: <Frame className="w-3.5 h-3.5" />,
+      icon: <FrameCorners className="w-3.5 h-3.5" />,
     });
   }
 
@@ -183,7 +183,7 @@ export function buildLayerContextMenu(
       id: "toggleVisibility",
       label: options.isVisible ? "Hide" : "Show",
       icon: options.isVisible ? (
-        <EyeOff className="w-3.5 h-3.5" />
+        <EyeSlash className="w-3.5 h-3.5" />
       ) : (
         <Eye className="w-3.5 h-3.5" />
       ),
@@ -192,7 +192,7 @@ export function buildLayerContextMenu(
       id: "toggleLock",
       label: options.isLocked ? "Unlock" : "Lock",
       icon: options.isLocked ? (
-        <Unlock className="w-3.5 h-3.5" />
+        <LockOpen className="w-3.5 h-3.5" />
       ) : (
         <Lock className="w-3.5 h-3.5" />
       ),

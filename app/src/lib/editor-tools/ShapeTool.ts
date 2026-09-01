@@ -16,6 +16,7 @@ export function createShapeTool(kind: ShapeKind): ToolHandler {
           startY: ctx.worldPoint.y,
           currentX: ctx.worldPoint.x,
           currentY: ctx.worldPoint.y,
+          shiftKey: ctx.shiftKey,
         },
       };
     },
@@ -27,6 +28,7 @@ export function createShapeTool(kind: ShapeKind): ToolHandler {
             ...state.shapeDragState,
             currentX: ctx.worldPoint.x,
             currentY: ctx.worldPoint.y,
+            shiftKey: ctx.shiftKey,
           },
         };
       }

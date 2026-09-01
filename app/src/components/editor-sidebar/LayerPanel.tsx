@@ -1,31 +1,24 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
-  Layers,
+  Stack,
   Eye,
-  Lock,
-  EyeOff,
-  Unlock,
+  LockOpen,
   Plus,
   FolderPlus,
-  GripVertical,
-  Trash2,
-  ChevronRight,
-  ChevronDown,
-  FolderOpen,
-  Search,
+  MagnifyingGlass,
   X,
-  ChevronsUpDown,
-  ChevronsDownUp,
-  EyeOff as EyeOffAll,
+  ArrowsDownUp,
+  EyeSlash as EyeOffAll,
   Lock as LockAll,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import LayerContextMenu, {
   buildLayerContextMenu,
   type ContextMenuItem,
 } from "./LayerContextMenu";
 import type { LayerType } from "../../context/EditorContext";
 import type { ElementProperties } from "../editor-canvas/ElementsRenderer";
-import { LayerIcon } from "./LayerPanel/LayerIcon";
+
+import { LayerItem, type DropPosition } from "./LayerPanel/LayerItem";
 import { ToolbarBtn, ContextActionListener } from "./LayerPanel/Toolbar";
 
 interface LayerPanelProps {
@@ -49,8 +42,6 @@ interface LayerPanelProps {
 }
 
 // ─── Drop indicator types ─────────────────────────────────────────────────────
-
-type DropPosition = "above" | "below" | "inside" | null;
 
 interface DragOverState {
   targetId: string;
@@ -523,163 +514,37 @@ export default function LayerPanel({
       const indentLines = renderIndentLines(parentId, depth);
 
       const layerEl = (
-        <li
-          key={layer.id}
-          draggable
-          onDragStart={(e) => handleDragStart(e, layer.id)}
-          onDragOver={(e) => handleDragOver(e, layer.id)}
-          onDrop={(e) => handleDrop(e, layer.id)}
+        <LayerItem
+          layer={layer}
+          depth={depth}
+          active={active}
+          isDragged={isDragged}
+          isGroup={isGroup}
+          isCollapsed={isCollapsed}
+          hasChildren={hasChildren}
+          childCount={childCount}
+          isEmptyGroup={isEmptyGroup}
+          dropIndicatorClass={dropIndicatorClass}
+          dropLine={dropLine}
+          indentLines={indentLines}
+          editingLayerId={editingLayerId}
+          editingName={editingName}
+          setEditingName={setEditingName}
+          saveEditing={saveEditing}
+          handleKeyDown={handleKeyDown}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
           onDragEnd={handleDragEnd}
-          onClick={() => setActiveLayer(layer.id)}
-          onContextMenu={(e) => handleContextMenu(e, layer.id)}
-          className={`relative flex items-center justify-between px-3 py-2.5 rounded-md text-sm cursor-pointer transition-all duration-150 group ${
-            active
-              ? "bg-blue-600/10 text-blue-400"
-              : "text-zinc-300 hover:bg-white/5"
-          } ${
-            isDragged
-              ? "opacity-40"
-              : dropIndicatorClass || ""
-          }`}
-          style={{ paddingLeft: `${12 + depth * 16}px` }}
-        >
-          {/* Tree indent connector lines */}
-          {indentLines}
-          {/* Drop line indicator */}
-          {dropLine}
-
-          <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
-            <div className="cursor-grab active:cursor-grabbing text-zinc-600 group-hover:text-zinc-400 shrink-0">
-              <GripVertical className="w-3 h-3" />
-            </div>
-
-            {/* Group expand/collapse toggle */}
-            {isGroup && hasChildren ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const newCollapsed = !isCollapsed;
-                  onToggleCollapse?.(layer.id, newCollapsed);
-                  setLayers((prev) =>
-                    prev.map((l) =>
-                      l.id === layer.id
-                        ? { ...l, collapsed: newCollapsed }
-                        : l,
-                    ),
-                  );
-                }}
-                className="shrink-0 text-zinc-500 hover:text-zinc-300 transition-colors"
-              >
-                {isCollapsed ? (
-                  <ChevronRight className="w-3 h-3" />
-                ) : (
-                  <ChevronDown className="w-3 h-3" />
-                )}
-              </button>
-            ) : isEmptyGroup ? (
-              <div className="w-3.5 flex items-center justify-center shrink-0">
-                <FolderOpen className="w-3 h-3 text-zinc-500" />
-              </div>
-            ) : isGroup ? (
-              <div className="w-3.5 flex items-center justify-center shrink-0">
-                <FolderOpen className="w-3 h-3 text-blue-400" />
-              </div>
-            ) : (
-              <div className="w-3.5 flex items-center justify-center shrink-0">
-                <LayerIcon type={layer.type} className="w-3 h-3" />
-              </div>
-            )}
-
-            {editingLayerId === layer.id ? (
-              <input
-                type="text"
-                value={editingName}
-                onChange={(e) => setEditingName(e.target.value)}
-                onBlur={saveEditing}
-                onKeyDown={handleKeyDown}
-                autoFocus
-                className="flex-1 min-w-0 bg-black/20 border border-blue-500 rounded px-1 text-sm text-white outline-none"
-                onClick={(e) => e.stopPropagation()}
-              />
-            ) : (
-              <span
-                className={`truncate flex-1 min-w-0 ${layer.visible ? "" : "opacity-40"} ${layer.masked ? "italic" : ""}`}
-                onDoubleClick={(e) =>
-                  startEditing(e, layer.id, layer.name)
-                }
-              >
-                {layer.name}
-              </span>
-            )}
-
-            {/* Child count badge for groups */}
-            {isGroup && (
-              <span
-                className={`shrink-0 text-[10px] font-mono rounded px-1.5 py-0.5 ${
-                  hasChildren
-                    ? "text-zinc-500 bg-zinc-800/80 border border-white/5"
-                    : "text-zinc-600 bg-transparent"
-                }`}
-                title={hasChildren ? `${childCount} child${childCount !== 1 ? "ren" : ""}` : "Empty group — drag layers here"}
-              >
-                {hasChildren ? childCount : "0"}
-              </span>
-            )}
-          </div>
-
-          <div
-            className={`flex items-center gap-1.5 transition-opacity ml-2 shrink-0 ${
-              active || layer.locked || !layer.visible
-                ? "opacity-100"
-                : "opacity-0 group-hover:opacity-100"
-            }`}
-          >
-            {/* Mask indicator */}
-            {layer.masked && (
-              <span
-                className="text-[9px] text-amber-500/70 font-mono px-1"
-                title="Masked"
-              >
-                M
-              </span>
-            )}
-
-            {/* Delete button */}
-            <button
-              onClick={(e) => handleDeleteLayer(e, layer.id)}
-              className="hover:text-red-400 transition-colors flex items-center justify-center text-zinc-500 hover:bg-white/5 p-1 rounded"
-              title="Delete Layer"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Lock toggle */}
-            <button
-              onClick={(e) => toggleLock(e, layer.id)}
-              className="hover:text-white transition-colors flex items-center justify-center p-1 rounded hover:bg-white/5"
-              title={layer.locked ? "Unlock Layer" : "Lock Layer"}
-            >
-              {layer.locked ? (
-                <Lock className="w-3.5 h-3.5 text-zinc-500" />
-              ) : (
-                <Unlock className="w-3.5 h-3.5 text-zinc-600 opacity-40 hover:opacity-100" />
-              )}
-            </button>
-
-            {/* Visibility toggle */}
-            <button
-              onClick={(e) => toggleVisibility(e, layer.id)}
-              className="hover:text-white transition-colors flex items-center justify-center p-1 rounded hover:bg-white/5"
-              title={layer.visible ? "Hide Layer" : "Show Layer"}
-            >
-              {layer.visible ? (
-                <Eye className="w-3.5 h-3.5 text-zinc-500 hover:text-zinc-300" />
-              ) : (
-                <EyeOff className="w-3.5 h-3.5 text-zinc-600 opacity-40 hover:opacity-100" />
-              )}
-            </button>
-          </div>
-        </li>
+          onClick={setActiveLayer}
+          onContextMenu={handleContextMenu}
+          onToggleCollapse={onToggleCollapse ?? (() => {})}
+          setLayers={setLayers}
+          onDeleteLayer={handleDeleteLayer}
+          toggleLock={toggleLock}
+          toggleVisibility={toggleVisibility}
+          startEditing={startEditing}
+        />
       );
 
       // Render children if group is expanded (or for root level always)
@@ -722,7 +587,7 @@ export default function LayerPanel({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="px-5 py-4 flex items-center justify-between border-b border-white/5">
         <div className="flex items-center gap-2 text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase font-semibold tracking-wider">
-          <Layers className="w-3.5 h-3.5" />
+          <Stack className="w-3.5 h-3.5" />
           Layers
         </div>
         <div className="flex items-center gap-0.5">
@@ -746,7 +611,7 @@ export default function LayerPanel({
       {/* Search field */}
       <div className="px-5 pt-3 pb-1">
         <div className="relative flex items-center">
-          <Search className="absolute left-3 w-3.5 h-3.5 text-zinc-600" />
+          <MagnifyingGlass className="absolute left-3 w-3.5 h-3.5 text-zinc-600" />
           <input
             type="text"
             value={searchQuery}
@@ -769,10 +634,10 @@ export default function LayerPanel({
       {/* Bulk action toolbar */}
       <div className="px-5 py-2 flex items-center gap-1 border-b border-white/5">
         <ToolbarBtn onClick={() => setAllCollapsed(true)} title="Collapse all groups">
-          <ChevronsDownUp className="w-3.5 h-3.5" />
+          <ArrowsDownUp className="w-3.5 h-3.5" />
         </ToolbarBtn>
         <ToolbarBtn onClick={() => setAllCollapsed(false)} title="Expand all groups">
-          <ChevronsUpDown className="w-3.5 h-3.5" />
+          <ArrowsDownUp className="w-3.5 h-3.5" />
         </ToolbarBtn>
         <div className="flex-1" />
         <ToolbarBtn onClick={() => setAllVisible(true)} title="Show all layers">
@@ -785,7 +650,7 @@ export default function LayerPanel({
           <LockAll className="w-3.5 h-3.5" />
         </ToolbarBtn>
         <ToolbarBtn onClick={() => setAllLocked(false)} title="Unlock all layers">
-          <Unlock className="w-3.5 h-3.5" />
+          <LockOpen className="w-3.5 h-3.5" />
         </ToolbarBtn>
       </div>
 

@@ -71,6 +71,10 @@ export function computeRotationDelta(
   return currentAngle - state.startAngle;
 }
 
-export function getRotateCursor(state: ToolInteractionState): string {
-  return state.rotateState ? "grabbing" : "grab";
+/** MS Word style rotate cursor — circular arrow, like Word's rotation handle */
+export const ROTATE_CURSOR =
+  `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%233b82f6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 2v6h-6'/><path d='M21 13a9 9 0 1 1-3-7.7L21 8'/></svg>") 12 12, alias`;
+
+export function getRotateCursor(_state: ToolInteractionState): string {
+  return ROTATE_CURSOR;
 }
