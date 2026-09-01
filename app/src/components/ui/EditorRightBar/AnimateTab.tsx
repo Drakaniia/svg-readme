@@ -2,13 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Play,
   Pause,
-  Zap,
-  Trash2,
-  Layers,
-  Wand,
-  ChevronDown,
-  ChevronRight,
-} from "lucide-react";
+  Lightning,
+  Trash,
+  Stack,
+  MagicWand,
+  CaretDown,
+  CaretRight,
+} from "@phosphor-icons/react";
 import type { ElementProperties, AnimationConfig } from "../../editor-canvas/ElementsRenderer";
 import { ANIMATION_PRESETS } from "../../editor-canvas/ElementsRenderer";
 import { generateEasingSvgPath, applyAnimationToLayers, applyStaggeredAnimation } from "../../../lib/editor/animationUtils";
@@ -249,7 +249,7 @@ function AnimateTab() {
             ) : (
               <>
                 <div className="w-10 h-10 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-zinc-400" />
+                  <Lightning className="w-4 h-4 text-zinc-400" />
                 </div>
                 <h3 className="text-sm font-medium text-zinc-300">No Layer Selected</h3>
                 <p className="text-xs text-zinc-500 text-center leading-relaxed max-w-[200px]">
@@ -330,7 +330,7 @@ function AnimateTab() {
         {/* Stagger */}
         <div className="p-5 border-b border-white/5">
           <div className="text-[11px] font-[JetBrains_Mono] text-zinc-500 uppercase tracking-wider mb-3 font-semibold flex items-center gap-2">
-            <Layers className="w-3 h-3" />
+            <Stack className="w-3 h-3" />
             Stagger
             <span className="text-[9px] text-zinc-600 ml-auto">offset each layer</span>
           </div>
@@ -354,7 +354,7 @@ function AnimateTab() {
                 onClick={() => applyStaggered(name)}
                 className="py-2 px-3 text-xs rounded-md transition-all text-purple-400 hover:text-purple-200 border border-purple-500/20 hover:border-purple-500/40 hover:bg-purple-500/10 flex items-center justify-center gap-1"
               >
-                <Wand className="w-3 h-3" />
+                <MagicWand className="w-3 h-3" />
                 {name}
               </button>
             ))}
@@ -373,7 +373,7 @@ function AnimateTab() {
                 onClick={() => applyToAllSelected(name)}
                 className="py-2 px-3 text-xs rounded-md transition-all text-zinc-400 hover:text-zinc-200 border border-white/5 hover:border-white/10 hover:bg-white/5 flex items-center justify-center gap-1"
               >
-                <Layers className="w-3 h-3" />
+                <Stack className="w-3 h-3" />
                 {name}
               </button>
             ))}
@@ -397,7 +397,7 @@ function AnimateTab() {
               onClick={removeAnimation}
               className="text-[10px] text-zinc-500 hover:text-red-400 font-mono uppercase tracking-wider transition-colors flex items-center gap-1"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash className="w-3 h-3" />
               Remove
             </button>
           )}
@@ -573,7 +573,7 @@ function AnimateTab() {
               onClick={() => setShowCustomKeyframes(!showCustomKeyframes)}
               className="flex items-center gap-1.5 text-[10px] text-zinc-500 hover:text-zinc-300 font-mono uppercase tracking-wider transition-colors"
             >
-              {showCustomKeyframes ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              {showCustomKeyframes ? <CaretDown className="w-3 h-3" /> : <CaretRight className="w-3 h-3" />}
               Custom Keyframes
               {activeAnim?.customKeyframes && (
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 ml-1" />

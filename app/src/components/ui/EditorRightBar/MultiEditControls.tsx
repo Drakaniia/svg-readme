@@ -1,4 +1,4 @@
-import { FlipHorizontal, FlipVertical } from "lucide-react";
+import { FlipHorizontal, FlipVertical } from "@phosphor-icons/react";
 import type { ElementProperties } from "../../editor-canvas/ElementsRenderer";
 
 // ─── Multi-edit (B10) ────────────────────────────────────────────────────────

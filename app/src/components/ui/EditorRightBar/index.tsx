@@ -8,6 +8,8 @@ export { default as ExportTab } from "./ExportTab";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
+type RightTab = "design" | "animate" | "export";
+
 interface EditorRightBarProps {
   onExport?: () => void;
   selectedLayerIds?: string[];
@@ -20,6 +22,9 @@ interface EditorRightBarProps {
   onAlignmentStart?: () => void;
   /** Canvas size — used to align a single layer to the frame (B7). */
   frameSize?: { width: number; height: number };
+  /** Controlled tab — when provided, TopToolbar drives the active tab */
+  activeTab?: RightTab;
+  onTabChange?: (tab: RightTab) => void;
 }
 
 export default function EditorRightBar({
@@ -32,10 +37,15 @@ export default function EditorRightBar({
   onMoveElement,
   onAlignmentStart,
   frameSize,
+  activeTab: controlledTab,
+  onTabChange,
 }: EditorRightBarProps) {
-  const [activeTab, setActiveTab] = useState<"design" | "animate" | "export">(
-    "design",
-  );
+  const [internalTab, setInternalTab] = useState<RightTab>("design");
+  const activeTab = controlledTab ?? internalTab;
+  const setActiveTab = (t: RightTab) => {
+    if (onTabChange) onTabChange(t);
+    else setInternalTab(t);
+  };
   const [copiedType, setCopiedType] = useState<"svg" | "markdown" | "png" | null>(null);
 
   const handleCopySvg = (options?: ExportOptions) => {
@@ -68,43 +78,45 @@ export default function EditorRightBar({
   const selectedProps =
     selectedId && elementProperties ? elementProperties[selectedId] : null;
 
+  const isControlled = controlledTab !== undefined;
   return (
     <aside className="w-80 shrink-0 border-l border-white/5 bg-[#09090b]/95 backdrop-blur-xl flex flex-col z-10 shadow-[-4px_0_24px_rgba(0,0,0,0.2)]">
-      {/* Tab Headers */}
-      <div className="flex border-b border-white/5 px-2 pt-2">
-        <button
-          onClick={() => setActiveTab("design")}
-          className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
-            activeTab === "design"
-              ? "border-blue-500 text-zinc-100"
-              : "border-transparent text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          Design
-        </button>
-        <button
-          onClick={() => setActiveTab("animate")}
-          className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
-            activeTab === "animate"
-              ? "border-blue-500 text-zinc-100"
-              : "border-transparent text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          Animate
-        </button>
-        <button
-          onClick={() => setActiveTab("export")}
-          className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
-            activeTab === "export"
-              ? "border-blue-500 text-zinc-100"
-              : "border-transparent text-zinc-500 hover:text-zinc-300"
-          }`}
-        >
-          Export
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto overflow-y-scroll scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent">
+      {/* Tab headers — hidden when controlled via TopToolbar */}
+      {!isControlled && (
+        <div className="flex border-b border-white/5 px-2 pt-2">
+          <button
+            onClick={() => setActiveTab("design")}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === "design"
+                ? "border-blue-500 text-zinc-100"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Design
+          </button>
+          <button
+            onClick={() => setActiveTab("animate")}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === "animate"
+                ? "border-blue-500 text-zinc-100"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Animate
+          </button>
+          <button
+            onClick={() => setActiveTab("export")}
+            className={`px-4 py-2 text-xs font-medium border-b-2 transition-colors ${
+              activeTab === "export"
+                ? "border-blue-500 text-zinc-100"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Export
+          </button>
+        </div>
+      )}
+      <div className={`flex-1 overflow-y-auto overflow-y-scroll scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent ${isControlled ? "pt-2" : ""}`}>
         {activeTab === "design" && (
           <DesignTab
             selectedId={selectedId}

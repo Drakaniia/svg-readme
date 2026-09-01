@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import {
-  Download,
+  DownloadSimple,
   Clipboard,
   Code,
   Image,
   Check,
   Play,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 // ─── Export Tab ───────────────────────────────────────────────────────────────
 
@@ -265,7 +265,7 @@ function ExportTab({
                 onClick={() => onExport?.(exportOptions)}
                 className="w-full flex items-center justify-center gap-2.5 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md shadow-lg shadow-blue-500/20 transition-all duration-200 border border-blue-500/50"
               >
-                <Download className="w-4 h-4" />
+                <DownloadSimple className="w-4 h-4" />
                 Download SVG
               </button>
               <button
@@ -304,7 +304,7 @@ function ExportTab({
                 onClick={() => onExportPng?.(exportOptions)}
                 className="w-full flex items-center justify-center gap-2.5 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-md shadow-lg shadow-blue-500/20 transition-all duration-200 border border-blue-500/50"
               >
-                <Download className="w-4 h-4" />
+                <DownloadSimple className="w-4 h-4" />
                 Download PNG
               </button>
               {onCopyImage && (
@@ -394,7 +394,7 @@ function ExportTab({
                     </>
                   ) : (
                     <>
-                      <Download className="w-4 h-4" />
+                      <DownloadSimple className="w-4 h-4" />
                       Export Animated {animFormat === "gif" ? "GIF" : "PNG Sequence"}
                     </>
                   )}
