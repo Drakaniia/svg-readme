@@ -1,14 +1,28 @@
 import { useState } from "react";
+import { ArrowRight, Code, DownloadSimple, MarkdownLogo } from "@phosphor-icons/react";
 
 interface Props {
   svgString: string;
   aspectRatio: number;
   toast: string;
   toastVisible: boolean;
+  /** Show the status line as a failure rather than a confirmation. */
+  toastError?: boolean;
   onDownload: () => void;
   onCopyMarkdown: () => void;
   onCopySvg: () => void;
   onOpenEditor: () => void;
+}
+
+const motionCls =
+  "focus-ring transition-[background-color,border-color,color,transform] duration-300 ease-brand active:scale-[0.98]";
+
+const ghostBtn = `inline-flex items-center gap-2 px-3 py-2 button-sm text-zinc-200 bg-[#272727] border border-[#313131] hover:bg-[#313131] hover:text-white whitespace-nowrap ${motionCls}`;
+
+function tabBtn(active: boolean) {
+  return `px-3 py-1 button-xsm ${motionCls} ${
+    active ? "bg-white text-zinc-900" : "text-zinc-400 hover:text-zinc-100"
+  }`;
 }
 
 export default function StudioPreview({
@@ -16,6 +30,7 @@ export default function StudioPreview({
   aspectRatio,
   toast,
   toastVisible,
+  toastError = false,
   onDownload,
   onCopyMarkdown,
   onCopySvg,
@@ -24,98 +39,80 @@ export default function StudioPreview({
   const [showCode, setShowCode] = useState(false);
 
   return (
-    <div className="bg-zinc-950 p-8 flex flex-col gap-5 relative overflow-hidden">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.04) 1px, transparent 0)",
-          backgroundSize: "24px 24px",
-        }}
-      />
-      <div className="flex items-center justify-between relative z-10">
-        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
-          Live Preview
+    <div className="bg-[#181818] p-4 sm:p-8 flex flex-col gap-6 min-w-0">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 caption-3 uppercase tracking-wider text-zinc-400">
+          <span aria-hidden="true" className="w-2 h-2 bg-green-400" />
+          Live preview
         </div>
-        <div className="flex bg-white/[0.06] p-0.5 gap-0.5" role="group" aria-label="Preview view">
-          <button
-            type="button"
-            aria-pressed={!showCode}
-            onClick={() => setShowCode(false)}
-            className={`px-3 py-1 text-[11px] font-medium transition-colors ${!showCode ? "bg-white text-zinc-900" : "text-zinc-400 hover:text-zinc-200"}`}
-          >
+        <div className="flex bg-[#272727] p-1 gap-1" role="group" aria-label="Preview view">
+          <button type="button" aria-pressed={!showCode} onClick={() => setShowCode(false)} className={tabBtn(!showCode)}>
             Preview
           </button>
-          <button
-            type="button"
-            aria-pressed={showCode}
-            onClick={() => setShowCode(true)}
-            className={`px-3 py-1 text-[11px] font-medium transition-colors ${showCode ? "bg-white text-zinc-900" : "text-zinc-400 hover:text-zinc-200"}`}
-          >
+          <button type="button" aria-pressed={showCode} onClick={() => setShowCode(true)} className={tabBtn(showCode)}>
             SVG
           </button>
         </div>
       </div>
 
       {showCode ? (
-        <pre className="flex-1 min-h-[200px] max-h-[320px] overflow-auto bg-black/40 border border-white/[0.08] p-4 font-mono text-[11px] leading-relaxed text-zinc-300 whitespace-pre-wrap break-all relative z-10">
+        <pre className="flex-1 min-h-[200px] max-h-[320px] overflow-auto bg-black border border-[#313131] p-4 font-code caption-5 text-zinc-300 whitespace-pre-wrap break-all">
           {svgString}
         </pre>
       ) : (
-        <div className="flex-1 flex items-center justify-center min-h-[200px] relative z-10">
+        <div className="flex-1 flex items-center justify-center min-h-[200px]">
           <div
-            className="bg-zinc-900 border border-white/[0.08] shadow-[0_25px_60px_-12px_rgba(0,0,0,0.8)] overflow-hidden transition-transform duration-300 hover:scale-[1.01] w-full max-w-[800px]"
+            className="bg-[#1F1F1F] border border-[#313131] shadow-lg overflow-hidden w-full max-w-[800px] [&>svg]:block [&>svg]:w-full [&>svg]:h-full"
             style={{ aspectRatio }}
             dangerouslySetInnerHTML={{ __html: svgString }}
           />
         </div>
       )}
 
-      <div className="flex gap-2.5 items-center flex-wrap relative z-10">
+      <div className="flex gap-2 items-center flex-wrap">
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#1b5def] text-white text-[13px] font-medium border-0 hover:bg-[#164ecb] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(27,93,239,0.3)] cursor-pointer transition-all whitespace-nowrap"
           onClick={onDownload}
+          className={`inline-flex items-center gap-2 px-3 py-2 button-sm bg-[#1b5def] text-white border border-[#1b5def] hover:bg-[#164ecb] whitespace-nowrap ${motionCls}`}
         >
+          <DownloadSimple size={16} weight="bold" aria-hidden="true" />
           Download SVG
         </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white/[0.06] text-zinc-200 text-[13px] font-medium border border-white/10 hover:bg-white/10 hover:border-white/[0.15] cursor-pointer transition-all whitespace-nowrap"
-          onClick={onCopySvg}
-        >
+        <button type="button" onClick={onCopySvg} className={ghostBtn}>
+          <Code size={16} weight="bold" aria-hidden="true" />
           Copy SVG
         </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white/[0.06] text-zinc-200 text-[13px] font-medium border border-white/10 hover:bg-white/10 hover:border-white/[0.15] cursor-pointer transition-all whitespace-nowrap"
-          onClick={onCopyMarkdown}
-        >
+        <button type="button" onClick={onCopyMarkdown} className={ghostBtn}>
+          <MarkdownLogo size={16} weight="bold" aria-hidden="true" />
           Copy Markdown
         </button>
         <button
           type="button"
-          className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-transparent text-zinc-200 text-[13px] font-semibold border border-[#1b5def] hover:bg-[#1b5def] hover:text-white cursor-pointer transition-all whitespace-nowrap"
           onClick={onOpenEditor}
+          className={`inline-flex items-center gap-2 px-3 py-2 button-sm text-zinc-200 border border-[#1b5def] hover:bg-[#1b5def] hover:text-white whitespace-nowrap ${motionCls}`}
         >
-          Open in Full Editor →
+          Open in full editor
+          <ArrowRight size={16} weight="bold" aria-hidden="true" />
         </button>
-        <span
-          aria-live="polite"
-          className={`font-mono text-[11px] text-green-400 transition-opacity duration-300 ml-auto ${
-            toastVisible ? "opacity-100" : "opacity-0"
-          }`}
-        >
-          {toast}
-        </span>
       </div>
-      <div className="bg-white/[0.04] border border-white/[0.08] py-2.5 px-3.5 relative z-10">
-        <code className="text-[12px] text-zinc-400 overflow-x-auto whitespace-nowrap block font-mono">
-          <span className="text-green-400">![banner]</span>
-          (./banner.svg)
+
+      <div className="bg-black border border-[#313131] px-4 py-3">
+        <code className="block font-code caption-5 text-zinc-400 overflow-x-auto whitespace-nowrap">
+          <span className="text-green-400">![banner]</span>(./banner.svg)
         </code>
       </div>
+
+      <p
+        role="status"
+        aria-live="polite"
+        className={`caption-4 min-h-4 transition-opacity duration-300 ease-brand ${
+          toastError ? "text-amber-400" : "text-green-400"
+        } ${
+          toastVisible ? "opacity-100" : "opacity-0"
+        }`}
+      >
+        {toast}
+      </p>
     </div>
   );
 }

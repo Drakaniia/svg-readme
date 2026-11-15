@@ -1,68 +1,64 @@
+import Reveal from "./Reveal";
+import { container, eyebrow } from "../lib/ui";
+
 const STEPS = [
   {
-    n: "1",
-    title: "Layout via React + Satori",
-    body: "Content and layout are described as React, then flattened to SVG server-side — the same approach used for OG-image generation.",
+    title: "Write your header",
+    body: "Add your name or handle (up to 28 characters) and a tagline (up to 60). The preview updates as you type.",
   },
   {
-    n: "2",
-    title: "Keyframes injected after render",
-    body: "Satori's output has no animation support, so the motion CSS is hand-written and injected into the SVG's <style> as a post-process step.",
+    title: "Pick a look",
+    body: "Choose one of six accent colors or any custom color, a font, light or dark, and one of four motions: fade, sweep, rise, or typewriter.",
   },
   {
-    n: "3",
-    title: "Export, then commit",
-    body: "Download the SVG, drop it in your repo, and reference it with a standard markdown image tag — GitHub renders the animation as-is.",
+    title: "Commit the file",
+    body: "Download banner.svg, add it to the repository named after your username, and point to it from README.md.",
   },
 ];
 
 export default function HowItWorks() {
   return (
-    <div className="max-w-[1200px] mx-auto px-6" id="how">
-      <div className="bg-zinc-100 py-16 mb-20 scroll-mt-20">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-start">
-            <div>
-              <div className="max-w-[560px] mb-8">
-                <div className="inline-flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 mb-3">
-                  <span aria-hidden="true" className="w-[6px] h-[6px] bg-zinc-400" />
-                  Under the hood
-                </div>
-                <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-bold tracking-tight">
-                  How it renders
-                </h2>
-              </div>
-              <div className="flex flex-col gap-8">
-                {STEPS.map((s) => (
-                  <div key={s.n} className="flex gap-5 items-start">
-                    <div className="w-8 h-8 bg-white border border-zinc-200 flex items-center justify-center font-mono text-xs font-semibold flex-shrink-0 mt-0.5">
-                      {s.n}
-                    </div>
-                    <div>
-                      <h4 className="text-[15px] font-semibold mb-1.5">{s.title}</h4>
-                      <p className="text-sm text-zinc-500 leading-[1.7]">{s.body}</p>
-                    </div>
+    <Reveal section id="how" aria-labelledby="how-title" className="py-24 scroll-mt-24">
+      <div className={container}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-start">
+          <div>
+            <p className={`${eyebrow} mb-4`}>How it works</p>
+            <h2 id="how-title" className="heading-4 md:heading-3 text-zinc-900 mb-12">
+              Three steps from blank profile to moving banner
+            </h2>
+            <ol className="flex flex-col gap-8">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="flex gap-4 items-start">
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-8 h-8 border border-zinc-300 bg-white title-4 text-zinc-900">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="title-2 text-zinc-900 mb-1">{s.title}</h3>
+                    <p className="body-6 text-zinc-600">{s.body}</p>
                   </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-zinc-950 p-7 font-mono text-[13px] leading-[2] text-zinc-200 border border-white/[0.06] md:sticky md:top-6">
-              <div className="text-zinc-600"># README.md</div>
-              <div className="text-green-400">![banner](./banner.svg)</div>
-              <br />
-              <div className="text-zinc-600">
-                &lt;!-- that&apos;s it — no build step,
-              </div>
-              <div className="text-zinc-600">
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;no external image host,
-              </div>
-              <div className="text-zinc-600">
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;no action to keep running --&gt;
-              </div>
-            </div>
+                </li>
+              ))}
+            </ol>
           </div>
+
+          <figure className="bg-[#181818] border border-[#313131] lg:sticky lg:top-24">
+            <figcaption className="px-6 py-3 border-b border-[#313131] caption-4 text-zinc-400">
+              yourname/yourname
+            </figcaption>
+            <pre className="p-6 font-code caption-2 text-zinc-300 overflow-x-auto whitespace-pre">
+              <code>
+                <span className="text-zinc-500"># README.md</span>
+                {"\n"}
+                <span className="text-green-400">![banner](./banner.svg)</span>
+                {"\n\n"}
+                <span className="text-zinc-500">{"<!-- That is the whole setup."}</span>
+                {"\n"}
+                <span className="text-zinc-500">{"     No build step, no workflow to keep running. -->"}</span>
+              </code>
+            </pre>
+          </figure>
         </div>
       </div>
-    </div>
+    </Reveal>
   );
 }

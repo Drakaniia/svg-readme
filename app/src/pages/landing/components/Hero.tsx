@@ -1,47 +1,87 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { ArrowClockwise, ArrowDown, Check, FileText } from "@phosphor-icons/react";
+import { buildQuickBanner } from "../lib/quickBanner";
+import { btnPrimary, container, eyebrow } from "../lib/ui";
+
+/** Built once from fixed options: this is real output from the studio below. */
+const HERO_BANNER = buildQuickBanner({
+  handle: "Owen Jerusalem",
+  tagline: "BSIT student · freelance designer · builder",
+  color: "#1b5def",
+  motion: "rise",
+  size: "800x200",
+  theme: "dark",
+  font: "display",
+  gradient: true,
+});
+
+const PROOF = ["Free and open source (MIT)", "No account needed", "Runs in your browser"];
 
 export default function Hero() {
+  // Changing the key remounts the SVG, which restarts its CSS keyframes.
+  const [playKey, setPlayKey] = useState(0);
+
   return (
-    <section className="relative overflow-hidden pt-20 pb-12">
-      <div
-        aria-hidden="true"
-        className="absolute -top-[200px] -right-[100px] w-[600px] h-[600px] bg-[radial-gradient(circle,rgba(27,93,239,0.08)_0%,transparent_70%)] pointer-events-none"
-      />
-      <div className="max-w-[1200px] mx-auto px-6 relative">
-        <div className="inline-flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-[#1b5def] mb-5">
-          <span aria-hidden="true" className="w-[6px] h-[6px] bg-[#1b5def]" />
-          GitHub Profile READMEs
-        </div>
-        <h1 className="font-display text-[clamp(2rem,5vw,3.5rem)] font-bold leading-[1.1] tracking-tight max-w-[700px] mb-5">
-          An animated banner for your README, built{" "}
-          <em className="text-[#1b5def] not-italic relative">
-            in the browser
-            <span
-              aria-hidden="true"
-              className="absolute bottom-[2px] left-0 right-0 h-2 bg-[#1b5def]/10 -z-10"
-            />
-          </em>
-          , not in Figma.
-        </h1>
-        <p className="text-lg text-zinc-500 max-w-[520px] leading-[1.7] mb-8">
-          Type your handle and tagline, pick an accent and a motion style, and
-          export a real SVG with the keyframes baked in — no rendering pipeline
-          required.
-        </p>
-        <div className="flex gap-3 flex-wrap items-center">
-          <Link
-            to="/editor"
-            className="inline-flex items-center px-5 py-3 bg-[#1b5def] text-white text-sm font-semibold hover:bg-[#164ecb] transition-colors no-underline"
+    <section aria-labelledby="hero-title" className="pt-16 pb-24 landing-motion">
+      <div className={container}>
+        <div className="max-w-[680px]">
+          <p className={`${eyebrow} mb-6`}>
+            <span aria-hidden="true" className="w-2 h-2 bg-[#1b5def]" />
+            For GitHub profile READMEs
+          </p>
+          <h1
+            id="hero-title"
+            className="heading-3 sm:heading-2 lg:heading-1 pb-2 mb-4 text-transparent bg-clip-text bg-[linear-gradient(90deg,#000000,#666666)]"
           >
-            Open Full Editor →
-          </Link>
-          <a
-            href="#studio"
-            className="inline-flex items-center px-5 py-3 border border-zinc-900 text-sm font-semibold text-zinc-900 hover:bg-zinc-900 hover:text-white transition-colors no-underline"
-          >
-            Try quick generator ↓
+            <span className="block">Animated banners</span>{" "}
+            <span className="block">for your GitHub</span>{" "}
+            <span className="block">profile README</span>
+          </h1>
+          <p className="body-3 sm:title-2 sm:font-normal text-zinc-600 mb-8">
+            Type your name and a tagline, pick a color and a motion, then download
+            a real SVG with the animation built in. Nothing to install, nothing to
+            sign up for.
+          </p>
+          <a href="#studio" className={btnPrimary}>
+            Design your banner
+            <ArrowDown size={16} weight="bold" aria-hidden="true" />
           </a>
+          <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2">
+            {PROOF.map((item) => (
+              <li key={item} className="flex items-center gap-2 caption-1 text-zinc-600">
+                <Check size={16} weight="bold" className="text-[#1b5def]" aria-hidden="true" />
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
+
+        <figure className="mt-16 border border-zinc-200 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-zinc-200">
+            <span className="flex items-center gap-2 caption-4 font-code text-zinc-600">
+              <FileText size={16} aria-hidden="true" />
+              README.md
+            </span>
+            <button
+              type="button"
+              onClick={() => setPlayKey((k) => k + 1)}
+              className="focus-ring inline-flex items-center gap-2 px-2 py-1 button-xsm text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 active:scale-[0.98] transition-[background-color,color,transform] duration-300 ease-brand"
+            >
+              <ArrowClockwise size={16} aria-hidden="true" />
+              Replay
+            </button>
+          </div>
+          <div className="p-4 sm:p-8">
+            <div
+              key={playKey}
+              className="w-full aspect-[4/1] overflow-hidden [&>svg]:block [&>svg]:w-full [&>svg]:h-full"
+              dangerouslySetInnerHTML={{ __html: HERO_BANNER }}
+            />
+          </div>
+          <figcaption className="px-4 pb-4 sm:px-8 sm:pb-8 caption-2 text-zinc-500">
+            Made with the generator below. The download is a plain SVG file you can open and read.
+          </figcaption>
+        </figure>
       </div>
     </section>
   );

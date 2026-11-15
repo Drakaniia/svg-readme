@@ -1,48 +1,56 @@
-const ITEMS = [
+import type { Icon } from "@phosphor-icons/react";
+import { ArrowsOut, Eye, PencilSimpleLine, Play } from "@phosphor-icons/react";
+import Reveal from "./Reveal";
+import { container, eyebrow } from "../lib/ui";
+
+const ITEMS: { icon: Icon; title: string; body: string }[] = [
   {
-    n: "01",
-    title: "Real keyframes, not frames",
-    body: "The animation is CSS inside the SVG's own <style> block — it plays natively wherever the SVG renders, with no frame count and no file-size penalty for smoothness.",
+    icon: Play,
+    title: "Plays right on your profile",
+    body: "The motion is CSS inside the SVG file, so GitHub shows it like any other image in your README. No GIF to record and no image host to keep alive.",
   },
   {
-    n: "02",
-    title: "What you see is what ships",
-    body: "The preview on this page is the exact markup you download. No separate render step, no \u201cclose enough\u201d gap between the editor and the export.",
+    icon: Eye,
+    title: "The preview is the file",
+    body: "What you see in the generator is the exact markup you download. There is no render step and no gap between preview and export.",
   },
   {
-    n: "03",
-    title: "Your brand, not a template",
-    body: "Accent, size, and motion are parameters, not presets baked into someone else's generator — set them once to match the rest of your profile.",
+    icon: ArrowsOut,
+    title: "Sharp at every width",
+    body: "Vector text and shapes stay crisp on a phone, a laptop, or a 4K monitor, and the file is plain text you can read and tweak by hand.",
+  },
+  {
+    icon: PencilSimpleLine,
+    title: "Yours to change later",
+    body: "Send any banner to the full editor to add shapes, images, and animated templates, then save a design file to pick it up again.",
   },
 ];
 
 export default function Features() {
   return (
-    <section className="py-20">
-      <div className="max-w-[1200px] mx-auto px-6">
-        <div className="max-w-[600px] mb-12">
-          <div className="inline-flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.1em] text-zinc-400 mb-3">
-            <span aria-hidden="true" className="w-[6px] h-[6px] bg-zinc-400" />
-            Why not just a static image
-          </div>
-          <h2 className="font-display text-[clamp(1.5rem,3vw,2rem)] font-bold tracking-tight">
-            Three things a GIF or screenshot can&apos;t do
+    <Reveal section aria-labelledby="benefits-title" className="py-24">
+      <div className={container}>
+        <div className="max-w-[680px] mb-12">
+          <p className={`${eyebrow} mb-4`}>Why an SVG</p>
+          <h2 id="benefits-title" className="heading-4 md:heading-3 text-zinc-900">
+            A moving header without a GIF, a server, or a design tool
           </h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-zinc-200 border border-zinc-200 overflow-hidden">
-          {ITEMS.map((f) => (
-            <div key={f.n} className="bg-white p-8 transition-colors hover:bg-zinc-50">
-              <span className="inline-block font-mono text-[11px] text-[#1b5def] font-medium mb-4 px-2 py-1 bg-[#1b5def]/5">
-                {f.n}
+        <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {ITEMS.map(({ icon: ItemIcon, title, body }) => (
+            <li
+              key={title}
+              className="bg-white border border-zinc-200 p-6 sm:p-8 transition-colors duration-300 ease-brand hover:border-zinc-300"
+            >
+              <span className="inline-flex items-center justify-center w-10 h-10 mb-6 bg-[#1b5def]/10 text-[#1b5def]">
+                <ItemIcon size={20} weight="bold" aria-hidden="true" />
               </span>
-              <h3 className="font-display text-[17px] font-semibold mb-2.5 tracking-tight">
-                {f.title}
-              </h3>
-              <p className="text-sm text-zinc-500 leading-[1.7]">{f.body}</p>
-            </div>
+              <h3 className="title-1 text-zinc-900 mb-2">{title}</h3>
+              <p className="body-6 text-zinc-600">{body}</p>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
-    </section>
+    </Reveal>
   );
 }

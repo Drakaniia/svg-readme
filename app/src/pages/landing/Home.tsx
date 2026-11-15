@@ -1,13 +1,19 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Hero from "./components/Hero";
 import StudioControls from "./components/StudioControls";
 import StudioPreview from "./components/StudioPreview";
 import Features from "./components/Features";
+import TaglineReveal from "./components/TaglineReveal";
 import HowItWorks from "./components/HowItWorks";
+import EditorShowcase from "./components/EditorShowcase";
+import Faq from "./components/Faq";
+import FinalCta from "./components/FinalCta";
+import Reveal from "./components/Reveal";
 import { buildQuickBanner, QUICK_SWATCHES, QUICK_MOTIONS, QUICK_FONTS } from "./lib/quickBanner";
 import type { QuickMotion, QuickTheme, QuickFont } from "./lib/quickBanner";
 import { saveQuickHandoff } from "./lib/quickHandoff";
+import { container, eyebrow } from "./lib/ui";
 
 const DEFAULTS = {
   handle: "Owen Jerusalem",
@@ -21,6 +27,8 @@ const DEFAULTS = {
 };
 
 const SIZES = ["800x200", "1000x220", "640x160"];
+
+const COPY_FAILED = "Copy failed. Your browser blocked clipboard access, so use Download SVG instead.";
 
 function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -37,15 +45,18 @@ export default function Home() {
   const [font, setFont] = useState<QuickFont>(DEFAULTS.font);
   const [gradient, setGradient] = useState(DEFAULTS.gradient);
   const [toast, setToast] = useState("");
+  const [toastError, setToastError] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
+  const toastTimer = useRef<number | undefined>(undefined);
 
-  const flashToast = (msg: string) => {
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+
+  const flashToast = (msg: string, error = false) => {
+    window.clearTimeout(toastTimer.current);
     setToast(msg);
+    setToastError(error);
     setToastVisible(true);
-    setTimeout(() => {
-      setToastVisible(false);
-      setTimeout(() => setToast(""), 300);
-    }, 2200);
+    toastTimer.current = window.setTimeout(() => setToastVisible(false), error ? 4000 : 2200);
   };
 
   const svgString = useMemo(
@@ -63,22 +74,21 @@ export default function Home() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    flashToast("Downloaded banner.svg");
+    flashToast("Saved banner.svg to your downloads");
   };
 
   const handleCopyMarkdown = () => {
-    const md = "![banner](./banner.svg)";
     navigator.clipboard
-      .writeText(md)
-      .then(() => flashToast("Copied to clipboard"))
-      .catch(() => flashToast("Copy needs HTTPS — use download instead"));
+      .writeText("![banner](./banner.svg)")
+      .then(() => flashToast("Markdown copied. Paste it into README.md"))
+      .catch(() => flashToast(COPY_FAILED, true));
   };
 
   const handleCopySvg = () => {
     navigator.clipboard
       .writeText(svgString)
-      .then(() => flashToast("SVG code copied"))
-      .catch(() => flashToast("Copy needs HTTPS — use download instead"));
+      .then(() => flashToast("SVG markup copied"))
+      .catch(() => flashToast(COPY_FAILED, true));
   };
 
   const handleOpenEditor = () => {
@@ -93,7 +103,7 @@ export default function Home() {
     setSize(pick(SIZES));
     setGradient(Math.random() < 0.5);
     setTheme(Math.random() < 0.5 ? "dark" : "light");
-    flashToast("Shuffled style 🎲");
+    flashToast("Style shuffled. Your text stayed the same");
   };
 
   const handleReset = () => {
@@ -105,53 +115,70 @@ export default function Home() {
     setTheme(DEFAULTS.theme);
     setFont(DEFAULTS.font);
     setGradient(DEFAULTS.gradient);
-    flashToast("Reset to defaults");
+    flashToast("Back to the default banner");
   };
 
   const [svgW, svgH] = size.split("x").map(Number);
   const aspectRatio = svgW / svgH;
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-zinc-900 font-sans antialiased">
+    <div className="landing-motion">
       <Hero />
 
-      <div className="max-w-[1200px] mx-auto px-6" id="studio">
-        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] border border-zinc-200 overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_12px_40px_rgba(0,0,0,0.06)] mb-20 scroll-mt-20">
-          <StudioControls
-            handle={handle}
-            tagline={tagline}
-            color={color}
-            motion={motion}
-            size={size}
-            theme={theme}
-            font={font}
-            gradient={gradient}
-            onHandle={setHandle}
-            onTagline={setTagline}
-            onColor={setColor}
-            onMotion={setMotion}
-            onSize={setSize}
-            onTheme={setTheme}
-            onFont={setFont}
-            onGradient={setGradient}
-            onRandomize={handleRandomize}
-            onReset={handleReset}
-          />
-          <StudioPreview
-            svgString={svgString}
-            aspectRatio={aspectRatio}
-            toast={toast}
-            toastVisible={toastVisible}
-            onDownload={handleDownload}
-            onCopyMarkdown={handleCopyMarkdown}
-            onCopySvg={handleCopySvg}
-            onOpenEditor={handleOpenEditor}
-          />
+      <Reveal section id="studio" aria-labelledby="studio-title" className="pb-24 scroll-mt-24">
+        <div className={container}>
+          <div className="max-w-[680px] mb-8">
+            <p className={`${eyebrow} mb-4`}>Generator</p>
+            <h2 id="studio-title" className="heading-4 md:heading-3 text-zinc-900 mb-4">
+              Build your banner
+            </h2>
+            <p className="body-3 text-zinc-600">
+              Every change updates the preview right away. Download when it looks
+              right, or send it to the full editor to keep going.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] border border-zinc-200 bg-white shadow-sm overflow-hidden">
+            <StudioControls
+              handle={handle}
+              tagline={tagline}
+              color={color}
+              motion={motion}
+              size={size}
+              theme={theme}
+              font={font}
+              gradient={gradient}
+              onHandle={setHandle}
+              onTagline={setTagline}
+              onColor={setColor}
+              onMotion={setMotion}
+              onSize={setSize}
+              onTheme={setTheme}
+              onFont={setFont}
+              onGradient={setGradient}
+              onRandomize={handleRandomize}
+              onReset={handleReset}
+            />
+            <StudioPreview
+              svgString={svgString}
+              aspectRatio={aspectRatio}
+              toast={toast}
+              toastVisible={toastVisible}
+              toastError={toastError}
+              onDownload={handleDownload}
+              onCopyMarkdown={handleCopyMarkdown}
+              onCopySvg={handleCopySvg}
+              onOpenEditor={handleOpenEditor}
+            />
+          </div>
         </div>
-      </div>
+      </Reveal>
 
       <Features />
+      <TaglineReveal />
       <HowItWorks />
+      <EditorShowcase />
+      <Faq />
+      <FinalCta />
     </div>
   );
 }

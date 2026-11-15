@@ -1,5 +1,51 @@
 @import "tailwindcss";
 
+/* ─── Landing design tokens ──────────────────────────────── */
+@theme {
+  --font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Named text styles (landing). Every size maps to a Tailwind scale step and
+ * its paired line height; only weight and tracking vary per style.
+ */
+@utility heading-1 { font-size: var(--text-6xl); line-height: var(--text-6xl--line-height); font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+@utility heading-2 { font-size: var(--text-5xl); line-height: var(--text-5xl--line-height); font-weight: 600; letter-spacing: -0.025em; text-wrap: balance; }
+@utility heading-3 { font-size: var(--text-4xl); line-height: var(--text-4xl--line-height); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+@utility heading-4 { font-size: var(--text-3xl); line-height: var(--text-3xl--line-height); font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+@utility heading-5 { font-size: var(--text-2xl); line-height: var(--text-2xl--line-height); font-weight: 600; letter-spacing: -0.015em; text-wrap: balance; }
+@utility heading-6 { font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
+@utility title-1 { font-size: var(--text-xl); line-height: var(--text-xl--line-height); font-weight: 500; }
+@utility title-2 { font-size: var(--text-lg); line-height: var(--text-lg--line-height); font-weight: 500; }
+@utility title-3 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 500; }
+@utility title-4 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; }
+@utility title-5 { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; }
+@utility body-1 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 600; text-wrap: pretty; }
+@utility body-2 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 500; text-wrap: pretty; }
+@utility body-3 { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 400; text-wrap: pretty; }
+@utility body-4 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 600; text-wrap: pretty; }
+@utility body-5 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; text-wrap: pretty; }
+@utility body-6 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 400; text-wrap: pretty; }
+@utility button-lg { font-size: var(--text-lg); line-height: var(--text-lg--line-height); font-weight: 600; }
+@utility button-md { font-size: var(--text-base); line-height: var(--text-base--line-height); font-weight: 600; }
+@utility button-sm { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 600; }
+@utility button-xsm { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 600; }
+@utility caption-1 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 500; }
+@utility caption-2 { font-size: var(--text-sm); line-height: var(--text-sm--line-height); font-weight: 400; }
+@utility caption-3 { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 600; }
+@utility caption-4 { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 500; }
+@utility caption-5 { font-size: var(--text-xs); line-height: var(--text-xs--line-height); font-weight: 400; }
+
+/* Visible keyboard focus for landing controls. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid #1b5def;
+    outline-offset: 2px;
+  }
+}
+
 :root {
   /* Surfaces */
   --background: #ffffff;
@@ -159,6 +205,44 @@
 .text-edit-textarea {
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+/* ─── Landing motion ─────────────────────────────────────── */
+/* Scroll reveal: rise 32px and fade in once (see landing/components/Reveal). */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    opacity 700ms var(--ease-brand),
+    transform 700ms var(--ease-brand);
+}
+.reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tagline reveal: each word goes from muted to full ink as it is reached. */
+.tagline-word {
+  opacity: 0.3;
+  transition: opacity 500ms var(--ease-brand);
+}
+.tagline-word[data-active="true"] {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    transform: none;
+    transition: opacity 300ms var(--ease-brand);
+  }
+  .tagline-word {
+    opacity: 1;
+    transition: none;
+  }
+  .landing-motion,
+  .landing-motion * {
+    transition-property: opacity, color, background-color, border-color !important;
+  }
 }
 
 /* ─── Responsive ─────────────────────────────────────────── */
